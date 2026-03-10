@@ -31,7 +31,8 @@ dependencies = [
     "selenium==4.9.1",
     "webdriver-manager==4.0.2",
     "undetected-chromedriver==3.5.5",
-    "lib-resume-builder-aihawk",
+    "requests>=2.32.5",
+    "chardet>=3.0.2,<6.0.0",
 ]
 
 [project.optional-dependencies]
@@ -43,5 +44,4 @@ dev = [
 [tool.uv]
 package = false
 
-[tool.uv.sources]
-lib-resume-builder-aihawk = { git = "https://github.com/feder-cr/lib_resume_builder_AIHawk.git" }
+
