@@ -1,24 +1,20 @@
 import os
+import re  # For email validation
 import tempfile
 import textwrap
-import time
-import re  # For email validation
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
-from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from loguru import logger
 from pathlib import Path
-from langchain_core.prompt_values import StringPromptValue
-from langchain_core.runnables import RunnablePassthrough
-from langchain_text_splitters import TokenTextSplitter
+
+from dotenv import load_dotenv
+from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import TextLoader
-from requests.exceptions import HTTPError as HTTPStatusError  # HTTP error handling
-import openai
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_text_splitters import TokenTextSplitter
+from loguru import logger
+
+from src.libs.resume_and_cover_builder.utils import LoggerChatModel
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -39,14 +35,8 @@ logger.add(
 
 class LLMParser:
     def __init__(self, openai_api_key):
-        self.llm = LoggerChatModel(
-            ChatOpenAI(
-                model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4
-            )
-        )
-        self.llm_embeddings = OpenAIEmbeddings(
-            openai_api_key=openai_api_key
-        )  # Initialize embeddings
+        self.llm = LoggerChatModel(ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4))
+        self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)  # Initialize embeddings
         self.vectorstore = None  # Will be initialized after document loading
 
     @staticmethod
@@ -68,15 +58,11 @@ class LLMParser:
         """
 
         # Save the HTML content to a temporary file
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=".html", mode="w", encoding="utf-8"
-        ) as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".html", mode="w", encoding="utf-8") as temp_file:
             temp_file.write(body_html)
             temp_file_path = temp_file.name
         try:
-            loader = TextLoader(
-                temp_file_path, encoding="utf-8", autodetect_encoding=True
-            )
+            loader = TextLoader(temp_file_path, encoding="utf-8", autodetect_encoding=True)
             document = loader.load()
             logger.debug("Document successfully loaded.")
         except Exception as e:
@@ -93,9 +79,7 @@ class LLMParser:
 
         # Create the vectorstore using FAISS
         try:
-            self.vectorstore = FAISS.from_documents(
-                documents=all_splits, embedding=self.llm_embeddings
-            )
+            self.vectorstore = FAISS.from_documents(documents=all_splits, embedding=self.llm_embeddings)
             logger.debug("Vectorstore successfully initialized.")
         except Exception as e:
             logger.error(f"Error during vectorstore creation: {e}")
@@ -111,16 +95,12 @@ class LLMParser:
             str: Concatenated text fragments.
         """
         if not self.vectorstore:
-            raise ValueError(
-                "Vectorstore not initialized. Run extract_job_description first."
-            )
+            raise ValueError("Vectorstore not initialized. Run extract_job_description first.")
 
         retriever = self.vectorstore.as_retriever()
         retrieved_docs = retriever.get_relevant_documents(query)[:top_k]
         context = "\n\n".join(doc.page_content for doc in retrieved_docs)
-        logger.debug(
-            f"Context retrieved for query '{query}': {context[:200]}..."
-        )  # Log the first 200 characters
+        logger.debug(f"Context retrieved for query '{query}': {context[:200]}...")  # Log the first 200 characters
         return context
 
     def _extract_information(self, question: str, retrieval_query: str) -> str:
@@ -136,7 +116,7 @@ class LLMParser:
 
         prompt = ChatPromptTemplate.from_template(
             template="""
-            You are an expert in extracting specific information from job descriptions. 
+            You are an expert in extracting specific information from job descriptions.
             Carefully read the job description context below and provide a clear and concise answer to the question.
 
             Context: {context}
@@ -147,9 +127,7 @@ class LLMParser:
         )
 
         formatted_prompt = prompt.format(context=context, question=question)
-        logger.debug(
-            f"Formatted prompt for extraction: {formatted_prompt[:200]}..."
-        )  # Log the first 200 characters
+        logger.debug(f"Formatted prompt for extraction: {formatted_prompt[:200]}...")  # Log the first 200 characters
 
         try:
             chain = prompt | self.llm | StrOutputParser()

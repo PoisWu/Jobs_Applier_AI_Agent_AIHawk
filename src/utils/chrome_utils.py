@@ -3,10 +3,12 @@ import re
 import subprocess
 import time
 import urllib
+
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
+
 from src.logging import logger
 
 
@@ -52,9 +54,7 @@ def chrome_browser_options():
     options.add_argument("--disable-animations")
     options.add_argument("--disable-cache")
     options.add_argument("--incognito")
-    options.add_argument(
-        "--allow-file-access-from-files"
-    )  # Consente l'accesso ai file locali
+    options.add_argument("--allow-file-access-from-files")  # Consente l'accesso ai file locali
     options.add_argument("--disable-web-security")  # Disabilita la sicurezza web
     logger.debug("Using Chrome in incognito mode")
 
@@ -73,23 +73,15 @@ def init_browser() -> webdriver.Chrome:
             # to webdriver_manager to download the matching ChromeDriver.
             major = get_brave_major_version(brave_path)
             if major:
-                logger.debug(
-                    f"Detected Brave major version: {major} — downloading matching ChromeDriver"
-                )
-                service = ChromeService(
-                    ChromeDriverManager(driver_version=major).install()
-                )
+                logger.debug(f"Detected Brave major version: {major} — downloading matching ChromeDriver")
+                service = ChromeService(ChromeDriverManager(driver_version=major).install())
             else:
-                logger.warning(
-                    "Could not detect Brave version; trying default ChromeDriver"
-                )
+                logger.warning("Could not detect Brave version; trying default ChromeDriver")
                 service = ChromeService(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=options)
         else:
             logger.debug("Using default Chrome browser")
-            driver = webdriver.Chrome(
-                service=ChromeService(ChromeDriverManager().install()), options=options
-            )
+            driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
         logger.debug("Chrome browser initialized successfully.")
         return driver
     except Exception as e:
@@ -118,9 +110,7 @@ def HTML_to_PDF(html_content, driver):
     try:
         driver.get(data_url)
         # Attendi che la pagina si carichi completamente
-        time.sleep(
-            2
-        )  # Potrebbe essere necessario aumentare questo tempo per HTML complessi
+        time.sleep(2)  # Potrebbe essere necessario aumentare questo tempo per HTML complessi
 
         # Esegue il comando CDP per stampare la pagina in PDF
         pdf_base64 = driver.execute_cdp_cmd(

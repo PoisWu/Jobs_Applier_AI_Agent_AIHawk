@@ -41,8 +41,30 @@ dev = [
     "pytest>=8.3.3",
     "pytest-mock",
     "pytest-cov",
+    "pre-commit>=4.0.0",
+    "ruff>=0.9.10",
 ]
+
 [tool.uv]
 package = false
 
+[tool.ruff]
+line-length = 120
+target-version = "py311"
 
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: isort, UP: pyupgrade, B: flake8-bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    "E501",   # line too long – prompt template strings exceed 120 chars
+    "B006",   # mutable default argument – existing code uses these
+    "B904",   # raise-without-from inside except – existing code pattern
+    "UP007",  # use X | Y for unions – keep Optional for py3.10 compat
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

@@ -4,7 +4,6 @@ This module is used to store the global configuration of the application.
 
 # app/libs/resume_and_cover_builder/template_base.py
 
-
 prompt_cover_letter_template = """
 - **Template to Use**
 ```
@@ -34,7 +33,7 @@ prompt_cover_letter_template = """
 ```
 The results should be provided in html format, Provide only the html code for the cover letter, without any explanations or additional text and also without ```html ```
 """
-prompt_header_template = """
+prompt_header_template = r"""
 - **Template to Use**
 ```
 <header>

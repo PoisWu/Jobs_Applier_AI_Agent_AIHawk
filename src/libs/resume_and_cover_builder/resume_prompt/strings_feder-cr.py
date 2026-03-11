@@ -1,11 +1,11 @@
 from src.libs.resume_and_cover_builder.template_base import (
-    prompt_header_template,
-    prompt_education_template,
-    prompt_working_experience_template,
-    prompt_projects_template,
     prompt_achievements_template,
-    prompt_certifications_template,
     prompt_additional_skills_template,
+    prompt_certifications_template,
+    prompt_education_template,
+    prompt_header_template,
+    prompt_projects_template,
+    prompt_working_experience_template,
 )
 
 prompt_header = (
@@ -18,7 +18,7 @@ Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your
 
 Exclude any information that is not provided (None).
 
-- **My information:**  
+- **My information:**
   {personal_information}
 """
     + prompt_header_template
@@ -35,7 +35,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 
 Do not include coursework listings. Keep each entry compact: ideally 2 lines maximum.
 
-- **My information:**  
+- **My information:**
   {education_details}
 """
     + prompt_education_template
@@ -53,7 +53,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
 
-- **My information:**  
+- **My information:**
   {experience_details}
 """
     + prompt_working_experience_template
@@ -70,7 +70,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 
 Do not use Font Awesome icons. Include all projects from the data.
 
-- **My information:**  
+- **My information:**
   {projects}
 """
     + prompt_projects_template
@@ -84,7 +84,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 1. **Award or Recognition**: Clearly state the name of the award, recognition, scholarship, or honor.
 2. **Description**: Provide a brief description of the achievement and its relevance to your career or academic journey.
 
-- **My information:**  
+- **My information:**
   {achievements}
 """
     + prompt_achievements_template
@@ -104,7 +104,7 @@ To implement this:
 
 If any of the certification details (e.g., descriptions) are not provided (i.e., None), omit those sections when filling out the template.
 
-- **My information:**  
+- **My information:**
   {certifications}
 
 """
@@ -125,7 +125,7 @@ Categories should be derived from the provided data. Typical categories include:
 
 Only include categories for which skills are available. Do not invent skills not present in the data.
 
-- **My information:**  
+- **My information:**
   {languages}
   {interests}
   {skills}

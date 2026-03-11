@@ -6,8 +6,9 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Union
 
+import ai_hawk.llm.prompts as prompts
 import httpx
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage
@@ -17,8 +18,10 @@ from langchain_core.prompt_values import StringPromptValue
 from langchain_core.prompts import ChatPromptTemplate
 from Levenshtein import distance
 
-import ai_hawk.llm.prompts as prompts
+import config as cfg
 from config import JOB_SUITABILITY_SCORE
+from src.job import Job
+from src.logging import logger
 from src.utils.constants import (
     AVAILABILITY,
     CERTIFICATIONS,
@@ -38,15 +41,14 @@ from src.utils.constants import (
     JOB_DESCRIPTION,
     LANGUAGES,
     LEGAL_AUTHORIZATION,
-    LLM_MODEL_TYPE,
     LOGPROBS,
     MODEL,
     MODEL_NAME,
     OLLAMA,
     OPENAI,
-    PERPLEXITY,
     OPTIONS,
     OUTPUT_TOKENS,
+    PERPLEXITY,
     PERSONAL_INFORMATION,
     PHRASE,
     PROJECTS,
@@ -70,9 +72,6 @@ from src.utils.constants import (
     USAGE_METADATA,
     WORK_PREFERENCES,
 )
-from src.job import Job
-from src.logging import logger
-import config as cfg
 
 load_dotenv()
 
@@ -87,9 +86,7 @@ class OpenAIModel(AIModel):
     def __init__(self, api_key: str, llm_model: str):
         from langchain_openai import ChatOpenAI
 
-        self.model = ChatOpenAI(
-            model_name=llm_model, openai_api_key=api_key, temperature=0.4
-        )
+        self.model = ChatOpenAI(model_name=llm_model, openai_api_key=api_key, temperature=0.4)
 
     def invoke(self, prompt: str) -> BaseMessage:
         logger.debug("Invoking OpenAI API")
@@ -123,14 +120,17 @@ class OllamaModel(AIModel):
         response = self.model.invoke(prompt)
         return response
 
+
 class PerplexityModel(AIModel):
     def __init__(self, api_key: str, llm_model: str):
         from langchain_community.chat_models import ChatPerplexity
+
         self.model = ChatPerplexity(model=llm_model, api_key=api_key, temperature=0.4)
 
     def invoke(self, prompt: str) -> BaseMessage:
         response = self.model.invoke(prompt)
         return response
+
 
 # gemini doesn't seem to work because API doesn't rstitute answers for questions that involve answers that are too short
 class GeminiModel(AIModel):
@@ -168,16 +168,12 @@ class HuggingFaceModel(AIModel):
     def __init__(self, api_key: str, llm_model: str):
         from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
-        self.model = HuggingFaceEndpoint(
-            repo_id=llm_model, huggingfacehub_api_token=api_key, temperature=0.4
-        )
+        self.model = HuggingFaceEndpoint(repo_id=llm_model, huggingfacehub_api_token=api_key, temperature=0.4)
         self.chatmodel = ChatHuggingFace(llm=self.model)
 
     def invoke(self, prompt: str) -> BaseMessage:
         response = self.chatmodel.invoke(prompt)
-        logger.debug(
-            f"Invoking Model from Hugging Face API. Response: {response}, Type: {type(response)}"
-        )
+        logger.debug(f"Invoking Model from Hugging Face API. Response: {response}, Type: {type(response)}")
         return response
 
 
@@ -218,7 +214,7 @@ class LLMLogger:
         logger.debug(f"LLMLogger successfully initialized with LLM: {llm}")
 
     @staticmethod
-    def log_request(prompts, parsed_reply: Dict[str, Dict]):
+    def log_request(prompts, parsed_reply: dict[str, dict]):
         logger.debug("Starting log_request method")
         logger.debug(f"Prompts received: {prompts}")
         logger.debug(f"Parsed reply received: {parsed_reply}")
@@ -234,13 +230,10 @@ class LLMLogger:
             logger.debug("Prompts are of type StringPromptValue")
             prompts = prompts.text
             logger.debug(f"Prompts converted to text: {prompts}")
-        elif isinstance(prompts, Dict):
+        elif isinstance(prompts, dict):
             logger.debug("Prompts are of type Dict")
             try:
-                prompts = {
-                    f"prompt_{i + 1}": prompt.content
-                    for i, prompt in enumerate(prompts.messages)
-                }
+                prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
                 logger.debug(f"Prompts converted to dictionary: {prompts}")
             except Exception as e:
                 logger.error(f"Error converting prompts to dictionary: {str(e)}")
@@ -248,13 +241,8 @@ class LLMLogger:
         else:
             logger.debug("Prompts are of unknown type, attempting default conversion")
             try:
-                prompts = {
-                    f"prompt_{i + 1}": prompt.content
-                    for i, prompt in enumerate(prompts.messages)
-                }
-                logger.debug(
-                    f"Prompts converted to dictionary using default method: {prompts}"
-                )
+                prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
+                logger.debug(f"Prompts converted to dictionary using default method: {prompts}")
             except Exception as e:
                 logger.error(f"Error converting prompts using default method: {str(e)}")
                 raise
@@ -271,9 +259,7 @@ class LLMLogger:
             output_tokens = token_usage[OUTPUT_TOKENS]
             input_tokens = token_usage[INPUT_TOKENS]
             total_tokens = token_usage[TOTAL_TOKENS]
-            logger.debug(
-                f"Token usage - Input: {input_tokens}, Output: {output_tokens}, Total: {total_tokens}"
-            )
+            logger.debug(f"Token usage - Input: {input_tokens}, Output: {output_tokens}, Total: {total_tokens}")
         except KeyError as e:
             logger.error(f"KeyError in parsed_reply structure: {str(e)}")
             raise
@@ -288,9 +274,7 @@ class LLMLogger:
         try:
             prompt_price_per_token = 0.00000015
             completion_price_per_token = 0.0000006
-            total_cost = (input_tokens * prompt_price_per_token) + (
-                output_tokens * completion_price_per_token
-            )
+            total_cost = (input_tokens * prompt_price_per_token) + (output_tokens * completion_price_per_token)
             logger.debug(f"Total cost calculated: {total_cost}")
         except Exception as e:
             logger.error(f"Error calculating total cost: {str(e)}")
@@ -309,9 +293,7 @@ class LLMLogger:
             }
             logger.debug(f"Log entry created: {log_entry}")
         except KeyError as e:
-            logger.error(
-                f"Error creating log entry: missing key {str(e)} in parsed_reply"
-            )
+            logger.error(f"Error creating log entry: missing key {str(e)} in parsed_reply")
             raise
 
         try:
@@ -329,7 +311,7 @@ class LoggerChatModel:
         self.llm = llm
         logger.debug(f"LoggerChatModel successfully initialized with LLM: {llm}")
 
-    def __call__(self, messages: List[Dict[str, str]]) -> str:
+    def __call__(self, messages: list[dict[str, str]]) -> str:
         logger.debug(f"Entering __call__ method with messages: {messages}")
         while True:
             try:
@@ -378,13 +360,11 @@ class LoggerChatModel:
 
             except Exception as e:
                 logger.error(f"Unexpected error occurred: {str(e)}")
-                logger.info(
-                    "Waiting for 30 seconds before retrying due to an unexpected error."
-                )
+                logger.info("Waiting for 30 seconds before retrying due to an unexpected error.")
                 time.sleep(30)
                 continue
 
-    def parse_llmresult(self, llmresult: AIMessage) -> Dict[str, Dict]:
+    def parse_llmresult(self, llmresult: AIMessage) -> dict[str, dict]:
         logger.debug(f"Parsing LLM result: {llmresult}")
 
         try:
@@ -397,30 +377,16 @@ class LoggerChatModel:
                 parsed_result = {
                     CONTENT: content,
                     RESPONSE_METADATA: {
-                        MODEL_NAME: response_metadata.get(
-                            MODEL_NAME, ""
-                        ),
-                        SYSTEM_FINGERPRINT: response_metadata.get(
-                            SYSTEM_FINGERPRINT, ""
-                        ),
-                        FINISH_REASON: response_metadata.get(
-                            FINISH_REASON, ""
-                        ),
-                        LOGPROBS: response_metadata.get(
-                            LOGPROBS, None
-                        ),
+                        MODEL_NAME: response_metadata.get(MODEL_NAME, ""),
+                        SYSTEM_FINGERPRINT: response_metadata.get(SYSTEM_FINGERPRINT, ""),
+                        FINISH_REASON: response_metadata.get(FINISH_REASON, ""),
+                        LOGPROBS: response_metadata.get(LOGPROBS, None),
                     },
                     ID: id_,
                     USAGE_METADATA: {
-                        INPUT_TOKENS: usage_metadata.get(
-                            INPUT_TOKENS, 0
-                        ),
-                        OUTPUT_TOKENS: usage_metadata.get(
-                            OUTPUT_TOKENS, 0
-                        ),
-                        TOTAL_TOKENS: usage_metadata.get(
-                            TOTAL_TOKENS, 0
-                        ),
+                        INPUT_TOKENS: usage_metadata.get(INPUT_TOKENS, 0),
+                        OUTPUT_TOKENS: usage_metadata.get(OUTPUT_TOKENS, 0),
+                        TOTAL_TOKENS: usage_metadata.get(TOTAL_TOKENS, 0),
                     },
                 }
             else:
@@ -432,12 +398,8 @@ class LoggerChatModel:
                 parsed_result = {
                     CONTENT: content,
                     RESPONSE_METADATA: {
-                        MODEL_NAME: response_metadata.get(
-                            MODEL, ""
-                        ),
-                        FINISH_REASON: response_metadata.get(
-                            FINISH_REASON, ""
-                        ),
+                        MODEL_NAME: response_metadata.get(MODEL, ""),
+                        FINISH_REASON: response_metadata.get(FINISH_REASON, ""),
                     },
                     ID: id_,
                     USAGE_METADATA: {
@@ -470,9 +432,7 @@ class GPTAnswerer:
     @staticmethod
     def find_best_match(text: str, options: list[str]) -> str:
         logger.debug(f"Finding best match for text: '{text}' in options: {options}")
-        distances = [
-            (option, distance(text.lower(), option.lower())) for option in options
-        ]
+        distances = [(option, distance(text.lower(), option.lower())) for option in options]
         best_option = min(distances, key=lambda x: x[1])[0]
         logger.debug(f"Best match found: {best_option}")
         return best_option
@@ -495,9 +455,7 @@ class GPTAnswerer:
     def set_job(self, job: Job):
         logger.debug(f"Setting job: {job}")
         self.job = job
-        self.job.set_summarize_job_description(
-            self.summarize_job_description(self.job.description)
-        )
+        self.job.set_summarize_job_description(self.summarize_job_description(self.job.description))
 
     def set_job_application_profile(self, job_application_profile):
         logger.debug(f"Setting job application profile: {job_application_profile}")
@@ -505,12 +463,10 @@ class GPTAnswerer:
 
     def _clean_llm_output(self, output: str) -> str:
         return output.replace("*", "").replace("#", "").strip()
-    
+
     def summarize_job_description(self, text: str) -> str:
         logger.debug(f"Summarizing job description: {text}")
-        prompts.summarize_prompt_template = self._preprocess_template_string(
-            prompts.summarize_prompt_template
-        )
+        prompts.summarize_prompt_template = self._preprocess_template_string(prompts.summarize_prompt_template)
         prompt = ChatPromptTemplate.from_template(prompts.summarize_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
         raw_output = chain.invoke({TEXT: text})
@@ -526,32 +482,16 @@ class GPTAnswerer:
     def answer_question_textual_wide_range(self, question: str) -> str:
         logger.debug(f"Answering textual question: {question}")
         chains = {
-            PERSONAL_INFORMATION: self._create_chain(
-                prompts.personal_information_template
-            ),
-            SELF_IDENTIFICATION: self._create_chain(
-                prompts.self_identification_template
-            ),
-            LEGAL_AUTHORIZATION: self._create_chain(
-                prompts.legal_authorization_template
-            ),
-            WORK_PREFERENCES: self._create_chain(
-                prompts.work_preferences_template
-            ),
-            EDUCATION_DETAILS: self._create_chain(
-                prompts.education_details_template
-            ),
-            EXPERIENCE_DETAILS: self._create_chain(
-                prompts.experience_details_template
-            ),
+            PERSONAL_INFORMATION: self._create_chain(prompts.personal_information_template),
+            SELF_IDENTIFICATION: self._create_chain(prompts.self_identification_template),
+            LEGAL_AUTHORIZATION: self._create_chain(prompts.legal_authorization_template),
+            WORK_PREFERENCES: self._create_chain(prompts.work_preferences_template),
+            EDUCATION_DETAILS: self._create_chain(prompts.education_details_template),
+            EXPERIENCE_DETAILS: self._create_chain(prompts.experience_details_template),
             PROJECTS: self._create_chain(prompts.projects_template),
             AVAILABILITY: self._create_chain(prompts.availability_template),
-            SALARY_EXPECTATIONS: self._create_chain(
-                prompts.salary_expectations_template
-            ),
-            CERTIFICATIONS: self._create_chain(
-                prompts.certifications_template
-            ),
+            SALARY_EXPECTATIONS: self._create_chain(prompts.salary_expectations_template),
+            CERTIFICATIONS: self._create_chain(prompts.certifications_template),
             LANGUAGES: self._create_chain(prompts.languages_template),
             INTERESTS: self._create_chain(prompts.interests_template),
             COVER_LETTER: self._create_chain(prompts.coverletter_template),
@@ -590,30 +530,20 @@ class GPTAnswerer:
             self.job_application_profile, section_name, None
         )
         if resume_section is None:
-            logger.error(
-                f"Section '{section_name}' not found in either resume or job_application_profile."
-            )
-            raise ValueError(
-                f"Section '{section_name}' not found in either resume or job_application_profile."
-            )
+            logger.error(f"Section '{section_name}' not found in either resume or job_application_profile.")
+            raise ValueError(f"Section '{section_name}' not found in either resume or job_application_profile.")
         chain = chains.get(section_name)
         if chain is None:
             logger.error(f"Chain not defined for section '{section_name}'")
             raise ValueError(f"Chain not defined for section '{section_name}'")
-        raw_output = chain.invoke(
-            {RESUME_SECTION: resume_section, QUESTION: question}
-        )
+        raw_output = chain.invoke({RESUME_SECTION: resume_section, QUESTION: question})
         output = self._clean_llm_output(raw_output)
         logger.debug(f"Question answered: {output}")
         return output
 
-    def answer_question_numeric(
-        self, question: str, default_experience: str = 3
-    ) -> str:
+    def answer_question_numeric(self, question: str, default_experience: str = 3) -> str:
         logger.debug(f"Answering numeric question: {question}")
-        func_template = self._preprocess_template_string(
-            prompts.numeric_question_template
-        )
+        func_template = self._preprocess_template_string(prompts.numeric_question_template)
         prompt = ChatPromptTemplate.from_template(func_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
         raw_output_str = chain.invoke(
@@ -630,9 +560,7 @@ class GPTAnswerer:
             output = self.extract_number_from_string(output_str)
             logger.debug(f"Extracted number: {output}")
         except ValueError:
-            logger.warning(
-                f"Failed to extract number, using default experience: {default_experience}"
-            )
+            logger.warning(f"Failed to extract number, using default experience: {default_experience}")
             output = default_experience
         return output
 
@@ -666,12 +594,8 @@ class GPTAnswerer:
         return best_option
 
     def determine_resume_or_cover(self, phrase: str) -> str:
-        logger.debug(
-            f"Determining if phrase refers to resume or cover letter: {phrase}"
-        )
-        prompt = ChatPromptTemplate.from_template(
-            prompts.resume_or_cover_letter_template
-        )
+        logger.debug(f"Determining if phrase refers to resume or cover letter: {phrase}")
+        prompt = ChatPromptTemplate.from_template(prompts.resume_or_cover_letter_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
         raw_response = chain.invoke({PHRASE: phrase})
         response = self._clean_llm_output(raw_response)
@@ -700,7 +624,9 @@ class GPTAnswerer:
             score = re.search(r"Score:\s*(\d+)", output, re.IGNORECASE).group(1)
             reasoning = re.search(r"Reasoning:\s*(.+)", output, re.IGNORECASE | re.DOTALL).group(1)
         except AttributeError:
-            logger.warning("Failed to extract score or reasoning from LLM. Proceeding with application, but job may or may not be suitable.")
+            logger.warning(
+                "Failed to extract score or reasoning from LLM. Proceeding with application, but job may or may not be suitable."
+            )
             return True
 
         logger.info(f"Job suitability score: {score}")
