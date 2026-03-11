@@ -5,14 +5,16 @@ Create a class that generates a resume based on a resume and a resume template.
 # app/libs/resume_and_cover_builder/gpt_resume.py
 import os
 import textwrap
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
-from pathlib import Path
+
+from src.libs.resume_and_cover_builder.utils import LoggerChatModel
 
 # Load environment variables from .env file
 load_dotenv()
@@ -34,9 +36,7 @@ logger.add(
 class LLMResumer:
     def __init__(self, openai_api_key, strings):
         self.llm_cheap = LoggerChatModel(
-            ChatOpenAI(
-                model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4
-            )
+            ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4)
         )
         self.strings = strings
 
@@ -67,16 +67,10 @@ class LLMResumer:
         Returns:
             str: The generated header section.
         """
-        header_prompt_template = self._preprocess_template_string(
-            self.strings.prompt_header
-        )
+        header_prompt_template = self._preprocess_template_string(self.strings.prompt_header)
         prompt = ChatPromptTemplate.from_template(header_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
-        input_data = (
-            {"personal_information": self.resume.personal_information}
-            if data is None
-            else data
-        )
+        input_data = {"personal_information": self.resume.personal_information} if data is None else data
         output = chain.invoke(input_data)
         return output
 
@@ -90,9 +84,7 @@ class LLMResumer:
         """
         logger.debug("Starting education section generation")
 
-        education_prompt_template = self._preprocess_template_string(
-            self.strings.prompt_education
-        )
+        education_prompt_template = self._preprocess_template_string(self.strings.prompt_education)
         logger.debug(f"Education template: {education_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(education_prompt_template)
@@ -101,11 +93,7 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = (
-            {"education_details": self.resume.education_details}
-            if data is None
-            else data
-        )
+        input_data = {"education_details": self.resume.education_details} if data is None else data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
@@ -122,9 +110,7 @@ class LLMResumer:
         """
         logger.debug("Starting work experience section generation")
 
-        work_experience_prompt_template = self._preprocess_template_string(
-            self.strings.prompt_working_experience
-        )
+        work_experience_prompt_template = self._preprocess_template_string(self.strings.prompt_working_experience)
         logger.debug(f"Work experience template: {work_experience_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(work_experience_prompt_template)
@@ -133,11 +119,7 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = (
-            {"experience_details": self.resume.experience_details}
-            if data is None
-            else data
-        )
+        input_data = {"experience_details": self.resume.experience_details} if data is None else data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
@@ -154,9 +136,7 @@ class LLMResumer:
         """
         logger.debug("Starting side projects section generation")
 
-        projects_prompt_template = self._preprocess_template_string(
-            self.strings.prompt_projects
-        )
+        projects_prompt_template = self._preprocess_template_string(self.strings.prompt_projects)
         logger.debug(f"Side projects template: {projects_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(projects_prompt_template)
@@ -182,9 +162,7 @@ class LLMResumer:
         """
         logger.debug("Starting achievements section generation")
 
-        achievements_prompt_template = self._preprocess_template_string(
-            self.strings.prompt_achievements
-        )
+        achievements_prompt_template = self._preprocess_template_string(self.strings.prompt_achievements)
         logger.debug(f"Achievements template: {achievements_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(achievements_prompt_template)
@@ -217,9 +195,7 @@ class LLMResumer:
         """
         logger.debug("Starting Certifications section generation")
 
-        certifications_prompt_template = self._preprocess_template_string(
-            self.strings.prompt_certifications
-        )
+        certifications_prompt_template = self._preprocess_template_string(self.strings.prompt_certifications)
         logger.debug(f"Certifications template: {certifications_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(certifications_prompt_template)
@@ -228,9 +204,7 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = (
-            {"certifications": self.resume.certifications} if data is None else data
-        )
+        input_data = {"certifications": self.resume.certifications} if data is None else data
         logger.debug(f"Input data for the chain: {input_data}")
 
         output = chain.invoke(input_data)
@@ -245,9 +219,7 @@ class LLMResumer:
         Returns:
             str: The generated additional skills section.
         """
-        additional_skills_prompt_template = self._preprocess_template_string(
-            self.strings.prompt_additional_skills
-        )
+        additional_skills_prompt_template = self._preprocess_template_string(self.strings.prompt_additional_skills)
 
         skills = set()
         if self.resume.experience_details:
@@ -335,9 +307,7 @@ class LLMResumer:
 
         # Use ThreadPoolExecutor to run the functions in parallel
         with ThreadPoolExecutor() as executor:
-            future_to_section = {
-                executor.submit(fn): section for section, fn in functions.items()
-            }
+            future_to_section = {executor.submit(fn): section for section, fn in functions.items()}
             results = {}
             for future in as_completed(future_to_section):
                 section = future_to_section[future]

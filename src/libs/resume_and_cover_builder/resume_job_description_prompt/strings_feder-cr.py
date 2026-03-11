@@ -1,11 +1,11 @@
 from src.libs.resume_and_cover_builder.template_base import (
-    prompt_header_template,
-    prompt_education_template,
-    prompt_working_experience_template,
-    prompt_projects_template,
+    prompt_achievements_template,
     prompt_additional_skills_template,
     prompt_certifications_template,
-    prompt_achievements_template,
+    prompt_education_template,
+    prompt_header_template,
+    prompt_projects_template,
+    prompt_working_experience_template,
 )
 
 prompt_header = (
@@ -18,7 +18,7 @@ Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your
 
 If any of the contact information fields are not provided (i.e., `None`), omit them from the header.
 
-- **My information:**  
+- **My information:**
   {personal_information}
 """
     + prompt_header_template
@@ -35,10 +35,10 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 Do not include coursework listings. Keep each entry compact: ideally 2 lines maximum.
 If exam details are not provided (i.e., `None`), skip them.
 
-- **My information:**  
+- **My information:**
   {education_details}
 
-- **Job Description:**  
+- **Job Description:**
   {job_description}
 """
     + prompt_education_template
@@ -57,10 +57,10 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
 If any work experience details are not provided (i.e., `None`), omit those sections.
 
-- **My information:**  
+- **My information:**
   {experience_details}
 
-- **Job Description:**  
+- **Job Description:**
   {job_description}
 """
     + prompt_working_experience_template
@@ -78,10 +78,10 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 Do not use Font Awesome icons. Include all projects from the data.
 If any project details are not provided (i.e., `None`), omit those sections.
 
-- **My information:**  
+- **My information:**
   {projects}
 
-- **Job Description:**  
+- **Job Description:**
   {job_description}
 """
     + prompt_projects_template
@@ -101,10 +101,10 @@ To implement this:
 - If any of the achievement details (e.g., certifications, descriptions) are not provided (i.e., `None`), omit those sections when filling out the template.
 
 
-- **My information:**  
+- **My information:**
   {achievements}
 
-- **Job Description:**  
+- **Job Description:**
   {job_description}
 """
     + prompt_achievements_template
@@ -124,10 +124,10 @@ To implement this:
 
 If any of the certification details (e.g., descriptions) are not provided (i.e., None), omit those sections when filling out the template.
 
-- **My information:**  
+- **My information:**
   {certifications}
 
-- **Job Description:**  
+- **Job Description:**
   {job_description}
 """
     + prompt_certifications_template
@@ -149,12 +149,12 @@ Categories should be derived from the provided data. Typical categories include:
 Only include categories for which skills are available. Do not invent skills not present in the data.
 If any skill details are not provided (i.e., `None`), omit those sections.
 
-- **My information:**  
+- **My information:**
   {languages}
   {interests}
   {skills}
 
-- **Job Description:**  
+- **Job Description:**
   {job_description}
 """
     + prompt_additional_skills_template
