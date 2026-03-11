@@ -1,0 +1,281 @@
+/*Cheng-Yen Pro$https://github.com/cheng-yen*/
+
+@import url('https://cdn.jsdelivr.net/gh/aaaakshat/cm-web-fonts@latest/fonts.css');
+
+/* ── Reset & base ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Computer Modern Serif", "Latin Modern Roman", "CMU Serif", "Times New Roman", serif;
+  line-height: 1.25;
+  color: #000;
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 0.4in;
+  font-size: 11pt;
+  background-color: #fff;
+}
+
+/* ── Header / name block (centered, LaTeX style) ── */
+header {
+  text-align: center;
+  margin-bottom: 8px;
+  padding-bottom: 0;
+  border: none;
+}
+
+h1 {
+  font-size: 22pt;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  color: #000;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.contact-info {
+  display: block;
+  text-align: center;
+  font-size: 10pt;
+  font-weight: 400;
+  color: #000;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.contact-info .contact-line {
+  margin: 0;
+}
+
+.contact-info span.separator {
+  margin: 0 6px;
+}
+
+.contact-info a {
+  color: blue;
+  text-decoration: none;
+}
+
+.contact-info a:hover {
+  text-decoration: underline;
+}
+
+/* Hide FA icons — LaTeX style uses plain text */
+.fab, .fas {
+  display: none;
+}
+
+/* ── Section headings (UPPERCASE bold + hrule below) ── */
+h2 {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 14px 0 0 0;
+  padding: 0 0 3px 0;
+  border-left: none;
+  border-bottom: none;
+}
+
+h2::after {
+  content: "";
+  display: block;
+  margin-top: 4px;
+  border-bottom: 1px solid #000;
+}
+
+/* ── Entry blocks ── */
+.entry {
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 700;
+  font-size: 11pt;
+  color: #000;
+  margin-bottom: 0;
+}
+
+.entry-name {
+  font-weight: 700;
+}
+
+.entry-location {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 11pt;
+  color: #000;
+}
+
+.entry-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11pt;
+  color: #000;
+  margin-bottom: 3px;
+  font-style: normal;
+}
+
+.entry-title {
+  color: #000;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.entry-year {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11pt;
+  color: #000;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+/* ── Sub-section headings within work experience ── */
+.entry-subtitle {
+  font-weight: 700;
+  font-size: 11pt;
+  margin: 6px 0 2px 12px;
+}
+
+.entry-description {
+  margin: 0 0 2px 12px;
+  font-size: 11pt;
+  line-height: 1.25;
+}
+
+/* ── Bullet lists ── */
+.compact-list {
+  margin: 4px 0 2px 1.5em;
+  padding-left: 0;
+  list-style: none;
+}
+
+.compact-list li {
+  margin-bottom: 3px;
+  line-height: 1.3;
+  padding-left: 1.2em;
+  position: relative;
+}
+
+.compact-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  font-size: 1em;
+  line-height: 1.3;
+}
+
+/* ── Skills table layout ── */
+.skills-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11pt;
+  margin-top: 4px;
+}
+
+.skills-table td {
+  padding: 1px 0;
+  vertical-align: top;
+}
+
+.skills-table td:first-child {
+  font-weight: 700;
+  white-space: nowrap;
+  padding-right: 24px;
+  width: 1%;
+}
+
+/* ── Two-column (fallback if used) ── */
+.two-column {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.two-column ul {
+  width: 48%;
+  margin: 0;
+  padding-left: 14px;
+}
+
+/* ── Education compact line ── */
+.education-entry {
+  margin-bottom: 4px;
+}
+
+.education-entry .edu-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.education-entry .edu-description {
+  margin: 0;
+  font-size: 11pt;
+  font-style: italic;
+  color: #000;
+}
+
+/* ── Links ── */
+a {
+  color: blue;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  color: blue;
+}
+
+/* ── Print optimisation ── */
+@media print {
+  body {
+    padding: 0;
+    margin: 0;
+    font-size: 11pt;
+    background-color: #fff;
+    color: #000;
+  }
+
+  @page {
+    margin: 0.4in;
+  }
+
+  h1 {
+    font-size: 22pt;
+  }
+
+  h2 {
+    font-size: 11pt;
+  }
+
+  h2::after {
+    border-bottom: 1px solid #000;
+  }
+
+  .contact-info {
+    font-size: 10pt;
+  }
+
+  .entry-details {
+    font-size: 11pt;
+  }
+
+  .compact-list {
+    padding-left: 0;
+  }
+
+  a {
+    color: blue;
+    text-decoration: none;
+  }
+}
