@@ -5,7 +5,7 @@ This module is responsible for generating resumes and cover letters using the LL
 # app/libs/resume_and_cover_builder/resume_generator.py
 from pathlib import Path
 from string import Template
-from typing import Any, Union
+from typing import Any
 
 from src.libs.resume_and_cover_builder.llm.llm_generate_cover_letter_from_job import LLMCoverLetterJobDescription
 from src.libs.resume_and_cover_builder.llm.llm_generate_resume import LLMResumer
@@ -23,7 +23,7 @@ class ResumeGenerator:
     def set_resume_object(self, resume_object: Resume) -> None:
         self.resume_object = resume_object
 
-    def _create_resume(self, gpt_answerer: Any, style_path: Union[str, Path]) -> str:
+    def _create_resume(self, gpt_answerer: Any, style_path: str | Path) -> str:
         # Imposta il resume nell'oggetto gpt_answerer
         gpt_answerer.set_resume(self.resume_object)
 
@@ -44,7 +44,7 @@ class ResumeGenerator:
         # Applica i contenuti al template
         return template.substitute(body=body_html, style_css=style_css)
 
-    def create_resume(self, style_path: Union[str, Path]) -> str:
+    def create_resume(self, style_path: str | Path) -> str:
         strings = load_module(global_config.STRINGS_MODULE_RESUME_PATH, global_config.STRINGS_MODULE_NAME)
         gpt_answerer = LLMResumer(global_config.API_KEY, strings)
         return self._create_resume(gpt_answerer, style_path)

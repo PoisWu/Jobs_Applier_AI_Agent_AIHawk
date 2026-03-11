@@ -6,7 +6,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import ai_hawk.llm.prompts as prompts
 import httpx
@@ -211,7 +211,7 @@ class AIAdapter:
 
 
 class LLMLogger:
-    def __init__(self, llm: Union[OpenAIModel, OllamaModel, ClaudeModel, GeminiModel]):
+    def __init__(self, llm: OpenAIModel | OllamaModel | ClaudeModel | GeminiModel):
         self.llm = llm
         logger.debug(f"LLMLogger successfully initialized with LLM: {llm}")
 
@@ -309,7 +309,7 @@ class LLMLogger:
 
 
 class LoggerChatModel:
-    def __init__(self, llm: Union[OpenAIModel, OllamaModel, ClaudeModel, GeminiModel]):
+    def __init__(self, llm: OpenAIModel | OllamaModel | ClaudeModel | GeminiModel):
         self.llm = llm
         logger.debug(f"LoggerChatModel successfully initialized with LLM: {llm}")
 

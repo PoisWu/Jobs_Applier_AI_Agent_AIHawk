@@ -1,102 +1,102 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 
 class PersonalInformation(BaseModel):
-    name: Optional[str]
-    surname: Optional[str]
-    date_of_birth: Optional[str]
-    country: Optional[str]
-    city: Optional[str]
-    address: Optional[str]
-    zip_code: Optional[str] = Field(None, min_length=5, max_length=10)
-    phone_prefix: Optional[str]
-    phone: Optional[str]
-    email: Optional[EmailStr]
-    github: Optional[HttpUrl] = None
-    linkedin: Optional[HttpUrl] = None
+    name: str | None
+    surname: str | None
+    date_of_birth: str | None
+    country: str | None
+    city: str | None
+    address: str | None
+    zip_code: str | None = Field(None, min_length=5, max_length=10)
+    phone_prefix: str | None
+    phone: str | None
+    email: EmailStr | None
+    github: HttpUrl | None = None
+    linkedin: HttpUrl | None = None
 
 
 class EducationDetails(BaseModel):
-    education_level: Optional[str]
-    institution: Optional[str]
-    field_of_study: Optional[str]
-    final_evaluation_grade: Optional[str]
-    start_date: Optional[str]
-    year_of_completion: Optional[int]
-    exam: Optional[Union[list[dict[str, str]], dict[str, str]]] = None
+    education_level: str | None
+    institution: str | None
+    field_of_study: str | None
+    final_evaluation_grade: str | None
+    start_date: str | None
+    year_of_completion: int | None
+    exam: list[dict[str, str]] | dict[str, str] | None = None
 
 
 class ExperienceDetails(BaseModel):
-    position: Optional[str]
-    company: Optional[str]
-    employment_period: Optional[str]
-    location: Optional[str]
-    industry: Optional[str]
-    key_responsibilities: Optional[list[dict[str, str]]] = None
-    skills_acquired: Optional[list[str]] = None
+    position: str | None
+    company: str | None
+    employment_period: str | None
+    location: str | None
+    industry: str | None
+    key_responsibilities: list[dict[str, str]] | None = None
+    skills_acquired: list[str] | None = None
 
 
 class Project(BaseModel):
-    name: Optional[str]
-    description: Optional[str]
-    link: Optional[HttpUrl] = None
+    name: str | None
+    description: str | None
+    link: HttpUrl | None = None
 
 
 class Achievement(BaseModel):
-    name: Optional[str]
-    description: Optional[str]
+    name: str | None
+    description: str | None
 
 
 class Certifications(BaseModel):
-    name: Optional[str]
-    description: Optional[str]
+    name: str | None
+    description: str | None
 
 
 class Language(BaseModel):
-    language: Optional[str]
-    proficiency: Optional[str]
+    language: str | None
+    proficiency: str | None
 
 
 class Availability(BaseModel):
-    notice_period: Optional[str]
+    notice_period: str | None
 
 
 class SalaryExpectations(BaseModel):
-    salary_range_usd: Optional[str]
+    salary_range_usd: str | None
 
 
 class SelfIdentification(BaseModel):
-    gender: Optional[str]
-    pronouns: Optional[str]
-    veteran: Optional[str]
-    disability: Optional[str]
-    ethnicity: Optional[str]
+    gender: str | None
+    pronouns: str | None
+    veteran: str | None
+    disability: str | None
+    ethnicity: str | None
 
 
 class LegalAuthorization(BaseModel):
-    eu_work_authorization: Optional[str]
-    us_work_authorization: Optional[str]
-    requires_us_visa: Optional[str]
-    requires_us_sponsorship: Optional[str]
-    requires_eu_visa: Optional[str]
-    legally_allowed_to_work_in_eu: Optional[str]
-    legally_allowed_to_work_in_us: Optional[str]
-    requires_eu_sponsorship: Optional[str]
+    eu_work_authorization: str | None
+    us_work_authorization: str | None
+    requires_us_visa: str | None
+    requires_us_sponsorship: str | None
+    requires_eu_visa: str | None
+    legally_allowed_to_work_in_eu: str | None
+    legally_allowed_to_work_in_us: str | None
+    requires_eu_sponsorship: str | None
 
 
 class Resume(BaseModel):
-    personal_information: Optional[PersonalInformation]
-    education_details: Optional[list[EducationDetails]] = None
-    experience_details: Optional[list[ExperienceDetails]] = None
-    projects: Optional[list[Project]] = None
-    achievements: Optional[list[Achievement]] = None
-    certifications: Optional[list[Certifications]] = None
-    languages: Optional[list[Language]] = None
-    interests: Optional[list[str]] = None
+    personal_information: PersonalInformation | None
+    education_details: list[EducationDetails] | None = None
+    experience_details: list[ExperienceDetails] | None = None
+    projects: list[Project] | None = None
+    achievements: list[Achievement] | None = None
+    certifications: list[Certifications] | None = None
+    languages: list[Language] | None = None
+    interests: list[str] | None = None
 
     @staticmethod
     def normalize_exam_format(exam):

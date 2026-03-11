@@ -8,7 +8,7 @@ import textwrap
 import types
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
@@ -62,7 +62,7 @@ class LLMResumer:
         """
         self.resume = resume
 
-    def generate_header(self, data: Optional[dict[str, Any]] = None) -> str:
+    def generate_header(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the header section of the resume.
         Args:
@@ -77,7 +77,7 @@ class LLMResumer:
         output = chain.invoke(input_data)
         return output
 
-    def generate_education_section(self, data: Optional[dict[str, Any]] = None) -> str:
+    def generate_education_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the education section of the resume.
         Args:
@@ -103,7 +103,7 @@ class LLMResumer:
         logger.debug("Education section generation completed")
         return output
 
-    def generate_work_experience_section(self, data: Optional[dict[str, Any]] = None) -> str:
+    def generate_work_experience_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the work experience section of the resume.
         Args:
@@ -129,7 +129,7 @@ class LLMResumer:
         logger.debug("Work experience section generation completed")
         return output
 
-    def generate_projects_section(self, data: Optional[dict[str, Any]] = None) -> str:
+    def generate_projects_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the side projects section of the resume.
         Args:
@@ -155,7 +155,7 @@ class LLMResumer:
         logger.debug("Side projects section generation completed")
         return output
 
-    def generate_achievements_section(self, data: Optional[dict[str, Any]] = None) -> str:
+    def generate_achievements_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the achievements section of the resume.
         Args:
@@ -190,7 +190,7 @@ class LLMResumer:
         logger.debug("Achievements section generation completed")
         return output
 
-    def generate_certifications_section(self, data: Optional[dict[str, Any]] = None) -> str:
+    def generate_certifications_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the certifications section of the resume.
         Returns:
@@ -216,7 +216,7 @@ class LLMResumer:
         logger.debug("Certifications section generation completed")
         return output
 
-    def generate_additional_skills_section(self, data: Optional[dict[str, Any]] = None) -> str:
+    def generate_additional_skills_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the additional skills section of the resume.
         Returns:

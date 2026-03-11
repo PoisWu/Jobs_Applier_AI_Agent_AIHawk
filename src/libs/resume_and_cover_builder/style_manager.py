@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -8,7 +7,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 
 class StyleManager:
     def __init__(self) -> None:
-        self.selected_style: Optional[str] = None
+        self.selected_style: str | None = None
         current_file = Path(__file__).resolve()
         project_root = current_file.parent.parent.parent.parent
         self.styles_directory = project_root / "src" / "libs" / "resume_and_cover_builder" / "resume_style"
@@ -73,7 +72,7 @@ class StyleManager:
         self.selected_style = selected_style
         logging.info(f"Selected style set to: {self.selected_style}")
 
-    def get_style_path(self) -> Optional[Path]:
+    def get_style_path(self) -> Path | None:
         """
         Get the path to the selected style.
         Returns:

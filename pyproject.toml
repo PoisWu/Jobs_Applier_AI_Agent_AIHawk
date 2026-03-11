@@ -59,7 +59,6 @@ ignore = [
     "E501",   # line too long – prompt template strings exceed 120 chars
     "B006",   # mutable default argument – existing code uses these
     "B904",   # raise-without-from inside except – existing code pattern
-    "UP007",  # use X | Y for unions – keep Optional for py3.10 compat
 ]
 
 [tool.ruff.lint.isort]
