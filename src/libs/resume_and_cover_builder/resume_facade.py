@@ -7,7 +7,7 @@ import inquirer
 from loguru import logger
 from selenium import webdriver
 
-import config as cfg
+from config import settings
 from src.job import Job
 from src.libs.resume_and_cover_builder.llm.llm_job_parser import LLMParser
 from src.libs.resume_and_cover_builder.resume_generator import ResumeGenerator
@@ -103,7 +103,7 @@ class ResumeFacade:
 
         html_resume = self.resume_generator.create_resume_job_description_text(style_path, self.job.description)
 
-        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[: cfg.HASH_PREFIX_LENGTH]
+        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[: settings.HASH_PREFIX_LENGTH]
 
         result = html_to_pdf(html_resume, self.driver)
         self.driver.quit()
@@ -136,7 +136,7 @@ class ResumeFacade:
 
         cover_letter_html = self.resume_generator.create_cover_letter_job_description(style_path, self.job.description)
 
-        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[: cfg.HASH_PREFIX_LENGTH]
+        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[: settings.HASH_PREFIX_LENGTH]
 
         result = html_to_pdf(cover_letter_html, self.driver)
         self.driver.quit()

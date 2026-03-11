@@ -33,6 +33,7 @@ dependencies = [
     "requests>=2.32",
     "chardet>=3.0.2,<6.0.0",
     "pydantic[email]>=2.12.5",
+    "pydantic-settings>=2.13.1",
 ]
 
 [project.optional-dependencies]

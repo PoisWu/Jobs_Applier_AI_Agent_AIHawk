@@ -9,7 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from loguru import logger
 
-import config as cfg
+from config import settings
 from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
 from src.resume_schemas.resume import Resume
 
@@ -18,9 +18,9 @@ class LLMResumer:
     def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
         self.llm_cheap = LoggerChatModel(
             ChatOpenAI(
-                model_name=cfg.LLM_MODEL,
+                model_name=settings.LLM_MODEL,
                 openai_api_key=openai_api_key,
-                temperature=cfg.LLM_TEMPERATURE,
+                temperature=settings.LLM_TEMPERATURE,
             )
         )
         self.strings = strings

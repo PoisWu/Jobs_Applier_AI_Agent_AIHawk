@@ -14,7 +14,7 @@ from langchain_openai import ChatOpenAI
 from loguru import logger
 from requests.exceptions import HTTPError as HTTPStatusError
 
-import config as cfg
+from config import settings
 
 from .config import global_config
 
@@ -49,8 +49,8 @@ class LLMLogger:
 
         # Extract model details from the response
         model_name = parsed_reply["response_metadata"]["model_name"]
-        prompt_price_per_token = cfg.PROMPT_PRICE_PER_TOKEN
-        completion_price_per_token = cfg.COMPLETION_PRICE_PER_TOKEN
+        prompt_price_per_token = settings.PROMPT_PRICE_PER_TOKEN
+        completion_price_per_token = settings.COMPLETION_PRICE_PER_TOKEN
 
         # Calculate the total cost of the API call
         total_cost = (input_tokens * prompt_price_per_token) + (output_tokens * completion_price_per_token)

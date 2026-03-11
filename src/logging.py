@@ -6,7 +6,7 @@ import sys
 from loguru import logger
 from selenium.webdriver.remote.remote_connection import LOGGER as selenium_logger
 
-from config import LOG_LEVEL, LOG_SELENIUM_LEVEL, LOG_TO_CONSOLE, LOG_TO_FILE
+from config import settings
 
 
 def remove_default_loggers() -> None:
@@ -19,20 +19,17 @@ def remove_default_loggers() -> None:
 def init_loguru_logger() -> None:
     """Initialize and configure loguru logger."""
 
-    def get_log_filename() -> str:
-        return "log/app.log"
-
-    log_file = get_log_filename()
+    log_file = "log/app.log"
 
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
 
     logger.remove()
 
     # Add file logger if LOG_TO_FILE is True
-    if LOG_TO_FILE:
+    if settings.LOG_TO_FILE:
         logger.add(
             log_file,
-            level=LOG_LEVEL,
+            level=settings.LOG_LEVEL,
             rotation="10 MB",
             retention="1 week",
             compression="zip",
@@ -42,10 +39,10 @@ def init_loguru_logger() -> None:
         )
 
     # Add console logger if LOG_TO_CONSOLE is True
-    if LOG_TO_CONSOLE:
+    if settings.LOG_TO_CONSOLE:
         logger.add(
             sys.stderr,
-            level=LOG_LEVEL,
+            level=settings.LOG_LEVEL,
             format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
             backtrace=True,
             diagnose=True,
@@ -59,11 +56,11 @@ def init_selenium_logger() -> None:
 
     selenium_logger.handlers.clear()
 
-    selenium_logger.setLevel(LOG_SELENIUM_LEVEL)
+    selenium_logger.setLevel(settings.LOG_SELENIUM_LEVEL)
 
     # Create file handler for selenium logger
     file_handler = logging.handlers.TimedRotatingFileHandler(log_file, when="D", interval=1, backupCount=5)
-    file_handler.setLevel(LOG_SELENIUM_LEVEL)
+    file_handler.setLevel(settings.LOG_SELENIUM_LEVEL)
 
     # Define a simplified format for selenium logger entries
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
