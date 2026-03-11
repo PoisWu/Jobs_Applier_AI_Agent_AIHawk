@@ -34,7 +34,7 @@ logger.add(
 
 
 class LLMParser:
-    def __init__(self, openai_api_key):
+    def __init__(self, openai_api_key: str) -> None:
         self.llm = LoggerChatModel(ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4))
         self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)  # Initialize embeddings
         self.vectorstore = None  # Will be initialized after document loading
@@ -50,7 +50,7 @@ class LLMParser:
         """
         return textwrap.dedent(template)
 
-    def set_body_html(self, body_html):
+    def set_body_html(self, body_html: str) -> None:
         """
         Retrieves the job description from HTML, processes it, and initializes the vectorstore.
         Args:

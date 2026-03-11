@@ -32,7 +32,7 @@ def get_brave_major_version(brave_path: str = "/usr/bin/brave-browser") -> str:
     return ""
 
 
-def chrome_browser_options():
+def chrome_browser_options() -> Options:
     logger.debug("Setting Chrome browser options")
     options = Options()
     options.add_argument("--start-maximized")
@@ -89,7 +89,7 @@ def init_browser() -> webdriver.Chrome:
         raise RuntimeError(f"Failed to initialize browser: {str(e)}")
 
 
-def HTML_to_PDF(html_content, driver):
+def HTML_to_PDF(html_content: str, driver: webdriver.Chrome) -> str:
     """
     Converte una stringa HTML in un PDF e restituisce il PDF come stringa base64.
 

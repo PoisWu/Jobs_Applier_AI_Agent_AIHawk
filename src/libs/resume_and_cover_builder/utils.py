@@ -6,6 +6,7 @@ This module contains utility functions for the Resume and Cover Letter Builder s
 import json
 import time
 from datetime import datetime
+from typing import Any
 
 import openai
 from langchain_core.messages.ai import AIMessage
@@ -22,7 +23,7 @@ class LLMLogger:
         self.llm = llm
 
     @staticmethod
-    def log_request(prompts, parsed_reply: dict[str, dict]):
+    def log_request(prompts: Any, parsed_reply: dict[str, dict]) -> None:
         calls_log = global_config.LOG_OUTPUT_FILE_PATH / "open_ai_calls.json"
         if isinstance(prompts, StringPromptValue):
             prompts = prompts.text

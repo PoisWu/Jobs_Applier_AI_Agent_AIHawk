@@ -9,7 +9,7 @@ from selenium.webdriver.remote.remote_connection import LOGGER as selenium_logge
 from config import LOG_LEVEL, LOG_SELENIUM_LEVEL, LOG_TO_CONSOLE, LOG_TO_FILE
 
 
-def remove_default_loggers():
+def remove_default_loggers() -> None:
     """Remove default loggers from root logger."""
     root_logger = logging.getLogger()
     if root_logger.hasHandlers():
@@ -18,10 +18,10 @@ def remove_default_loggers():
         os.remove("log/app.log")
 
 
-def init_loguru_logger():
+def init_loguru_logger() -> None:
     """Initialize and configure loguru logger."""
 
-    def get_log_filename():
+    def get_log_filename() -> str:
         return "log/app.log"
 
     log_file = get_log_filename()
@@ -54,7 +54,7 @@ def init_loguru_logger():
         )
 
 
-def init_selenium_logger():
+def init_selenium_logger() -> None:
     """Initialize and configure selenium logger to write to selenium.log."""
     log_file = "log/selenium.log"
     os.makedirs(os.path.dirname(log_file), exist_ok=True)

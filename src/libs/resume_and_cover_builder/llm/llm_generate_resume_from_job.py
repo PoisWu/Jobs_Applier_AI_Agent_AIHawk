@@ -4,6 +4,7 @@ Create a class that generates a job description based on a resume and a job desc
 
 # app/libs/resume_and_cover_builder/llm_generate_resume_from_job.py
 import os
+import types
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -24,10 +25,10 @@ logger.add(log_path / "gpt_resum_job_descr.log", rotation="1 day", compression="
 
 
 class LLMResumeJobDescription(LLMResumer):
-    def __init__(self, openai_api_key, strings):
+    def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
         super().__init__(openai_api_key, strings)
 
-    def set_job_description_from_text(self, job_description_text) -> None:
+    def set_job_description_from_text(self, job_description_text: str) -> None:
         """
         Set the job description text to be used for generating the resume.
         Args:

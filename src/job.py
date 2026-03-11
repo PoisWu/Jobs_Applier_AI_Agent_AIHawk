@@ -16,7 +16,7 @@ class Job:
     resume_path: str = ""
     cover_letter_path: str = ""
 
-    def formatted_job_information(self):
+    def formatted_job_information(self) -> str:
         """
         Formats the job information as a markdown string.
         """

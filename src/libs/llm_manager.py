@@ -6,7 +6,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 import ai_hawk.llm.prompts as prompts
 import httpx
@@ -22,6 +22,8 @@ import config as cfg
 from config import JOB_SUITABILITY_SCORE
 from src.job import Job
 from src.logging import logger
+from src.resume_schemas.job_application_profile import JobApplicationProfile
+from src.resume_schemas.resume import Resume
 from src.utils.constants import (
     AVAILABILITY,
     CERTIFICATIONS,
@@ -214,7 +216,7 @@ class LLMLogger:
         logger.debug(f"LLMLogger successfully initialized with LLM: {llm}")
 
     @staticmethod
-    def log_request(prompts, parsed_reply: dict[str, dict]):
+    def log_request(prompts: Any, parsed_reply: dict[str, dict]) -> None:
         logger.debug("Starting log_request method")
         logger.debug(f"Prompts received: {prompts}")
         logger.debug(f"Parsed reply received: {parsed_reply}")
@@ -421,12 +423,12 @@ class LoggerChatModel:
 
 
 class GPTAnswerer:
-    def __init__(self, config, llm_api_key):
+    def __init__(self, config: dict, llm_api_key: str) -> None:
         self.ai_adapter = AIAdapter(config, llm_api_key)
         self.llm_cheap = LoggerChatModel(self.ai_adapter)
 
     @property
-    def job_description(self):
+    def job_description(self) -> str:
         return self.job.description
 
     @staticmethod
@@ -448,7 +450,7 @@ class GPTAnswerer:
         logger.debug("Preprocessing template string")
         return textwrap.dedent(template)
 
-    def set_resume(self, resume):
+    def set_resume(self, resume: Resume) -> None:
         logger.debug(f"Setting resume: {resume}")
         self.resume = resume
 
@@ -457,7 +459,7 @@ class GPTAnswerer:
         self.job = job
         self.job.set_summarize_job_description(self.summarize_job_description(self.job.description))
 
-    def set_job_application_profile(self, job_application_profile):
+    def set_job_application_profile(self, job_application_profile: JobApplicationProfile) -> None:
         logger.debug(f"Setting job application profile: {job_application_profile}")
         self.job_application_profile = job_application_profile
 
@@ -474,7 +476,7 @@ class GPTAnswerer:
         logger.debug(f"Summary generated: {output}")
         return output
 
-    def _create_chain(self, template: str):
+    def _create_chain(self, template: str) -> Any:
         logger.debug(f"Creating chain with template: {template}")
         prompt = ChatPromptTemplate.from_template(template)
         return prompt | self.llm_cheap | StrOutputParser()
@@ -564,7 +566,7 @@ class GPTAnswerer:
             output = default_experience
         return output
 
-    def extract_number_from_string(self, output_str):
+    def extract_number_from_string(self, output_str: str) -> str:
         logger.debug(f"Extracting number from string: {output_str}")
         numbers = re.findall(r"\d+", output_str)
         if numbers:
@@ -607,7 +609,7 @@ class GPTAnswerer:
         else:
             return "resume"
 
-    def is_job_suitable(self):
+    def is_job_suitable(self) -> bool:
         logger.info("Checking if job is suitable")
         prompt = ChatPromptTemplate.from_template(prompts.is_relavant_position_template)
         chain = prompt | self.llm_cheap | StrOutputParser()

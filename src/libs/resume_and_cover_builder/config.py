@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 class GlobalConfig:
-    def __init__(self):
+    def __init__(self) -> None:
         self.STRINGS_MODULE_RESUME_PATH: Path = None
         self.STRINGS_MODULE_RESUME_JOB_DESCRIPTION_PATH: Path = None
         self.STRINGS_MODULE_COVER_LETTER_JOB_DESCRIPTION_PATH: Path = None

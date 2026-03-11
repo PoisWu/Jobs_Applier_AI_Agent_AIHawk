@@ -5,6 +5,7 @@ This creates the cover letter (in html, utils will then convert in PDF) matching
 # app/libs/resume_and_cover_builder/llm_generate_cover_letter_from_job.py
 import os
 import textwrap
+import types
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -12,6 +13,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from loguru import logger
+
+from src.resume_schemas.resume import Resume
 
 from ..utils import LoggerChatModel
 
@@ -29,7 +32,7 @@ logger.add(
 
 
 class LLMCoverLetterJobDescription:
-    def __init__(self, openai_api_key, strings):
+    def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
         self.llm_cheap = LoggerChatModel(
             ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4)
         )
@@ -47,7 +50,7 @@ class LLMCoverLetterJobDescription:
         """
         return textwrap.dedent(template)
 
-    def set_resume(self, resume) -> None:
+    def set_resume(self, resume: Resume) -> None:
         """
         Set the resume text to be used for generating the cover letter.
         Args:
@@ -55,7 +58,7 @@ class LLMCoverLetterJobDescription:
         """
         self.resume = resume
 
-    def set_job_description_from_text(self, job_description_text) -> None:
+    def set_job_description_from_text(self, job_description_text: str) -> None:
         """
         Set the job description text to be used for generating the cover letter.
         Args:

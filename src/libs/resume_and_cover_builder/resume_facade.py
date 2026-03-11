@@ -8,16 +8,27 @@ from pathlib import Path
 
 import inquirer
 from loguru import logger
+from selenium import webdriver
 
 from src.job import Job
 from src.libs.resume_and_cover_builder.llm.llm_job_parser import LLMParser
+from src.libs.resume_and_cover_builder.resume_generator import ResumeGenerator
+from src.libs.resume_and_cover_builder.style_manager import StyleManager
+from src.resume_schemas.resume import Resume
 from src.utils.chrome_utils import HTML_to_PDF
 
 from .config import global_config
 
 
 class ResumeFacade:
-    def __init__(self, api_key, style_manager, resume_generator, resume_object, output_path):
+    def __init__(
+        self,
+        api_key: str,
+        style_manager: StyleManager,
+        resume_generator: ResumeGenerator,
+        resume_object: Resume,
+        output_path: Path,
+    ) -> None:
         """
         Initialize the FacadeManager with the given API key, style manager, resume generator, resume object, and log path.
         Args:
@@ -44,7 +55,7 @@ class ResumeFacade:
         self.resume_generator.set_resume_object(resume_object)
         self.selected_style = None  # Property to store the selected style
 
-    def set_driver(self, driver):
+    def set_driver(self, driver: webdriver.Chrome) -> None:
         self.driver = driver
 
     def prompt_user(self, choices: list[str], message: str) -> str:
@@ -74,7 +85,7 @@ class ResumeFacade:
         ]
         return inquirer.prompt(questions)["text"]
 
-    def link_to_job(self, job_url):
+    def link_to_job(self, job_url: str) -> None:
         self.driver.get(job_url)
         self.driver.implicitly_wait(10)
         body_element = self.driver.find_element("tag name", "body")

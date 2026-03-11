@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 
 
 class StyleManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self.selected_style: Optional[str] = None
         current_file = Path(__file__).resolve()
         project_root = current_file.parent.parent.parent.parent
@@ -64,7 +64,7 @@ class StyleManager:
             for style_name, (file_name, author_link) in styles_to_files.items()
         ]
 
-    def set_selected_style(self, selected_style: str):
+    def set_selected_style(self, selected_style: str) -> None:
         """
         Directly set the selected style.
         Args:

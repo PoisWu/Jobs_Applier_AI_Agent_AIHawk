@@ -19,7 +19,7 @@ class ApplicationSaver:
         self.job_application_files_path = None
 
     # Function to create a directory for each job application
-    def create_application_directory(self):
+    def create_application_directory(self) -> str:
         job = self.job_application.job
 
         # Create a unique directory name using the application ID and company name
@@ -32,7 +32,7 @@ class ApplicationSaver:
         return dir_path
 
     # Function to save the job application details as a JSON file
-    def save_application_details(self):
+    def save_application_details(self) -> None:
         if self.job_application_files_path is None:
             raise ValueError("Job application file path is not set. Please create the application directory first.")
 
@@ -41,7 +41,7 @@ class ApplicationSaver:
             json.dump(self.job_application.application, json_file, indent=4)
 
     # Function to save files like Resume and CV
-    def save_file(self, dir_path, file_path, new_filename):
+    def save_file(self, dir_path: str, file_path: str, new_filename: str) -> None:
         if dir_path is None:
             raise ValueError("dir path cannot be None")
 
@@ -50,7 +50,7 @@ class ApplicationSaver:
         shutil.copy(file_path, destination)
 
     # Function to save job description as a text file
-    def save_job_description(self):
+    def save_job_description(self) -> None:
         if self.job_application_files_path is None:
             raise ValueError("Job application file path is not set. Please create the application directory first.")
 
