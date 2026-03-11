@@ -3,8 +3,8 @@
 import traceback
 from pathlib import Path
 
+from src.app_config import AppConfig, ConfigError, SecretsConfig, WorkPreferencesConfig
 from src.cli import handle_inquiries, prompt_user_action
-from src.config_validator import ConfigError, ConfigValidator
 from src.file_manager import FileManager
 from src.logging import logger
 
@@ -17,18 +17,22 @@ def main():
         secrets_file, config_file, plain_text_resume_file, output_folder = FileManager.validate_data_folder(data_folder)
 
         # Validate configuration and secrets
-        config = ConfigValidator.validate_config(config_file)
-        llm_api_key = ConfigValidator.validate_secrets(secrets_file)
+        preferences = WorkPreferencesConfig.from_yaml(config_file)
+        secrets = SecretsConfig.from_yaml(secrets_file)
 
-        # Prepare parameters
-        config["uploads"] = FileManager.get_uploads(plain_text_resume_file)
-        config["outputFileDirectory"] = output_folder
+        # Bundle into a single typed application config
+        app_config = AppConfig(
+            preferences=preferences,
+            secrets=secrets,
+            uploads=FileManager.get_uploads(plain_text_resume_file),
+            output_dir=output_folder,
+        )
 
         # Interactive prompt for user to select actions
         selected_actions = prompt_user_action()
 
         # Handle selected actions and execute them
-        handle_inquiries(selected_actions, config, llm_api_key)
+        handle_inquiries(selected_actions, app_config)
 
     except ConfigError as ce:
         logger.error(f"Configuration error: {ce}")

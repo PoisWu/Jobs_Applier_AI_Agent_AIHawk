@@ -5,6 +5,7 @@ from pathlib import Path
 
 import inquirer
 
+from src.app_config import AppConfig
 from src.libs.resume_and_cover_builder import ResumeFacade, ResumeGenerator, StyleManager
 from src.logging import logger
 from src.schemas.resume import Resume
@@ -39,11 +40,9 @@ def _select_style(style_manager: StyleManager) -> None:
         logger.warning("No style selected. Proceeding with default style.")
 
 
-def _build_facade(
-    parameters: dict, llm_api_key: str, style_manager: StyleManager
-) -> tuple[ResumeFacade, ResumeGenerator]:
+def _build_facade(app_config: AppConfig, style_manager: StyleManager) -> tuple[ResumeFacade, ResumeGenerator]:
     """Build and return a configured ResumeFacade with shared setup logic."""
-    with open(parameters["uploads"]["plainTextResume"], encoding="utf-8") as file:
+    with open(app_config.uploads["plainTextResume"], encoding="utf-8") as file:
         plain_text_resume = file.read()
 
     resume_generator = ResumeGenerator()
@@ -52,7 +51,7 @@ def _build_facade(
     resume_generator.set_resume_object(resume_object)
 
     resume_facade = ResumeFacade(
-        api_key=llm_api_key,
+        api_key=app_config.secrets.llm_api_key,
         style_manager=style_manager,
         resume_generator=resume_generator,
         resume_object=resume_object,
@@ -80,7 +79,7 @@ def _write_pdf(pdf_base64: str, output_path: Path) -> None:
         raise
 
 
-def create_cover_letter(parameters: dict, llm_api_key: str) -> None:
+def create_cover_letter(app_config: AppConfig) -> None:
     """Generate a tailored cover letter PDF."""
     try:
         logger.info("Generating a cover letter based on provided parameters.")
@@ -91,18 +90,18 @@ def create_cover_letter(parameters: dict, llm_api_key: str) -> None:
         answers = inquirer.prompt(questions)
         job_url = answers.get("job_url")
 
-        resume_facade, _ = _build_facade(parameters, llm_api_key, style_manager)
+        resume_facade, _ = _build_facade(app_config, style_manager)
         resume_facade.link_to_job(job_url)
         result_base64, suggested_name = resume_facade.create_cover_letter()
 
-        output_dir = Path(parameters["outputFileDirectory"]) / suggested_name
+        output_dir = app_config.output_dir / suggested_name
         _write_pdf(result_base64, output_dir / "cover_letter_tailored.pdf")
     except Exception as e:
         logger.exception(f"An error occurred while creating the cover letter: {e}")
         raise
 
 
-def create_resume_pdf_job_tailored(parameters: dict, llm_api_key: str) -> None:
+def create_resume_pdf_job_tailored(app_config: AppConfig) -> None:
     """Generate a job-tailored resume PDF."""
     try:
         logger.info("Generating a tailored resume based on provided parameters.")
@@ -113,35 +112,35 @@ def create_resume_pdf_job_tailored(parameters: dict, llm_api_key: str) -> None:
         answers = inquirer.prompt(questions)
         job_url = answers.get("job_url")
 
-        resume_facade, _ = _build_facade(parameters, llm_api_key, style_manager)
+        resume_facade, _ = _build_facade(app_config, style_manager)
         resume_facade.link_to_job(job_url)
         result_base64, suggested_name = resume_facade.create_resume_pdf_job_tailored()
 
-        output_dir = Path(parameters["outputFileDirectory"]) / suggested_name
+        output_dir = app_config.output_dir / suggested_name
         _write_pdf(result_base64, output_dir / "resume_tailored.pdf")
     except Exception as e:
         logger.exception(f"An error occurred while creating the tailored resume: {e}")
         raise
 
 
-def create_resume_pdf(parameters: dict, llm_api_key: str) -> None:
+def create_resume_pdf(app_config: AppConfig) -> None:
     """Generate a base resume PDF (no job tailoring)."""
     try:
         logger.info("Generating a base resume based on provided parameters.")
         style_manager = StyleManager()
         _select_style(style_manager)
 
-        resume_facade, _ = _build_facade(parameters, llm_api_key, style_manager)
+        resume_facade, _ = _build_facade(app_config, style_manager)
         result_base64 = resume_facade.create_resume_pdf()
 
-        output_dir = Path(parameters["outputFileDirectory"])
+        output_dir = app_config.output_dir
         _write_pdf(result_base64, output_dir / "resume_base.pdf")
     except Exception as e:
         logger.exception(f"An error occurred while creating the resume: {e}")
         raise
 
 
-def handle_inquiries(selected_actions: list[str], parameters: dict, llm_api_key: str) -> None:
+def handle_inquiries(selected_actions: list[str], app_config: AppConfig) -> None:
     """Dispatch user-selected actions to the appropriate generation function."""
     try:
         if not selected_actions:
@@ -157,7 +156,7 @@ def handle_inquiries(selected_actions: list[str], parameters: dict, llm_api_key:
         handler = action_map.get(selected_actions)
         if handler:
             logger.info(f"Executing: {selected_actions}")
-            handler(parameters, llm_api_key)
+            handler(app_config)
         else:
             logger.warning(f"Unknown action: {selected_actions}")
     except Exception as e:

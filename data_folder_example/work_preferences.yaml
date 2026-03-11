@@ -23,7 +23,7 @@ date:
   all_time: false
   month: false
   week: false
-  24_hours: true
+  past_day: true
 
 positions:
   - Software engineer

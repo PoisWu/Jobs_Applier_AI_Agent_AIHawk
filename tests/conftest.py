@@ -114,3 +114,51 @@ availability:
 salary_expectations:
   salary_range_usd: "120000 - 160000"
 """
+
+
+@pytest.fixture
+def valid_work_preferences_yaml() -> str:
+    """Minimal valid YAML for WorkPreferencesConfig."""
+    return """\
+remote: true
+hybrid: true
+onsite: false
+apply_once_at_company: false
+
+experience_level:
+  internship: false
+  entry: true
+  associate: true
+  mid_senior_level: true
+  director: false
+  executive: false
+
+job_types:
+  full_time: true
+  contract: false
+  part_time: false
+  temporary: false
+  internship: false
+  other: false
+  volunteer: false
+
+date:
+  all_time: false
+  month: false
+  week: true
+  past_day: false
+
+positions:
+  - Software Engineer
+
+locations:
+  - Germany
+
+distance: 25
+
+company_blacklist:
+  - ExampleCorp
+
+title_blacklist: []
+location_blacklist: []
+"""
