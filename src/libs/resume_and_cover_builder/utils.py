@@ -16,7 +16,7 @@ from requests.exceptions import HTTPError as HTTPStatusError
 
 from config import settings
 
-from .config import global_config
+from .builder_config import builder_config
 
 
 def preprocess_template_string(template: str) -> str:
@@ -30,7 +30,7 @@ class LLMLogger:
 
     @staticmethod
     def log_request(prompts: Any, parsed_reply: dict[str, dict]) -> None:
-        calls_log = global_config.LOG_OUTPUT_FILE_PATH / "open_ai_calls.json"
+        calls_log = builder_config.LOG_OUTPUT_FILE_PATH / "open_ai_calls.json"
         if isinstance(prompts, StringPromptValue):
             prompts = prompts.text
         elif isinstance(prompts, dict):

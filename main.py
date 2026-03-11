@@ -37,8 +37,9 @@ def main():
     except ConfigError as ce:
         logger.error(f"Configuration error: {ce}")
         logger.error(
-            "Refer to the configuration guide for troubleshooting: "
-            "https://github.com/feder-cr/Auto_Jobs_Applier_AIHawk?tab=readme-ov-file#configuration"
+            "Check that data_folder/work_preferences.yaml and data_folder/secrets.yaml "
+            "exist and contain all required fields. "
+            "See data_folder_example/ for reference templates."
         )
     except FileNotFoundError as fnf:
         logger.error(f"File not found: {fnf}")

@@ -1,20 +1,20 @@
-"""Tests for the GlobalConfig model."""
+"""Tests for the BuilderConfig model."""
 
-from src.libs.resume_and_cover_builder.config import _DEFAULT_HTML_TEMPLATE, GlobalConfig
+from src.libs.resume_and_cover_builder.builder_config import _DEFAULT_HTML_TEMPLATE, BuilderConfig
 
 
-def test_global_config_defaults():
-    config = GlobalConfig()
+def test_builder_config_defaults():
+    config = BuilderConfig()
     assert config.STYLES_DIRECTORY is None
     assert config.LOG_OUTPUT_FILE_PATH is None
     assert config.API_KEY is None
     assert config.html_template == _DEFAULT_HTML_TEMPLATE
 
 
-def test_global_config_with_values():
+def test_builder_config_with_values():
     from pathlib import Path
 
-    config = GlobalConfig(
+    config = BuilderConfig(
         STYLES_DIRECTORY=Path("/tmp/styles"),
         API_KEY="test-key",
     )

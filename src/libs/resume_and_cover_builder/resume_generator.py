@@ -20,7 +20,7 @@ from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
 )
 from src.schemas.resume import Resume
 
-from .config import global_config
+from .builder_config import builder_config
 
 
 class ResumeGenerator:
@@ -33,7 +33,7 @@ class ResumeGenerator:
     def _create_resume(self, gpt_answerer: Any, style_path: str | Path) -> str:
         gpt_answerer.set_resume(self.resume_object)
 
-        template = Template(global_config.html_template)
+        template = Template(builder_config.html_template)
 
         try:
             with open(style_path) as f:
@@ -47,20 +47,20 @@ class ResumeGenerator:
         return template.substitute(body=body_html, style_css=style_css)
 
     def create_resume(self, style_path: str | Path) -> str:
-        gpt_answerer = LLMResumer(global_config.API_KEY, resume_strings)
+        gpt_answerer = LLMResumer(builder_config.API_KEY, resume_strings)
         return self._create_resume(gpt_answerer, style_path)
 
     def create_resume_job_description_text(self, style_path: str, job_description_text: str) -> str:
-        gpt_answerer = LLMResumeJobDescription(global_config.API_KEY, job_desc_strings)
+        gpt_answerer = LLMResumeJobDescription(builder_config.API_KEY, job_desc_strings)
         gpt_answerer.set_job_description_from_text(job_description_text)
         return self._create_resume(gpt_answerer, style_path)
 
     def create_cover_letter_job_description(self, style_path: str, job_description_text: str) -> str:
-        gpt_answerer = LLMCoverLetterJobDescription(global_config.API_KEY, cover_letter_strings)
+        gpt_answerer = LLMCoverLetterJobDescription(builder_config.API_KEY, cover_letter_strings)
         gpt_answerer.set_resume(self.resume_object)
         gpt_answerer.set_job_description_from_text(job_description_text)
         cover_letter_html = gpt_answerer.generate_cover_letter()
-        template = Template(global_config.html_template)
+        template = Template(builder_config.html_template)
         with open(style_path) as f:
             style_css = f.read()
         return template.substitute(body=cover_letter_html, style_css=style_css)
