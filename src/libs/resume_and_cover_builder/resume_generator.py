@@ -6,12 +6,18 @@ from pathlib import Path
 from string import Template
 from typing import Any
 
-from src.libs.resume_and_cover_builder.cover_letter_prompt import strings_feder_cr as cover_letter_strings
 from src.libs.resume_and_cover_builder.llm.llm_generate_cover_letter_from_job import LLMCoverLetterJobDescription
 from src.libs.resume_and_cover_builder.llm.llm_generate_resume import LLMResumer
 from src.libs.resume_and_cover_builder.llm.llm_generate_resume_from_job import LLMResumeJobDescription
-from src.libs.resume_and_cover_builder.resume_job_description_prompt import strings_feder_cr as job_desc_strings
-from src.libs.resume_and_cover_builder.resume_prompt import strings_feder_cr as resume_strings
+from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
+    cover_letter as cover_letter_strings,
+)
+from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
+    resume as resume_strings,
+)
+from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
+    resume_job_description as job_desc_strings,
+)
 from src.resume_schemas.resume import Resume
 
 from .config import global_config
