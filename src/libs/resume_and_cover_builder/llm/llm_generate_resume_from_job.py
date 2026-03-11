@@ -1,27 +1,11 @@
-"""
-Create a class that generates a job description based on a resume and a job description template.
-"""
+"""Generate a job-tailored resume using an LLM."""
 
-# app/libs/resume_and_cover_builder/llm_generate_resume_from_job.py
-import os
 import types
-from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from loguru import logger
 
 from src.libs.resume_and_cover_builder.llm.llm_generate_resume import LLMResumer
-
-# Load environment variables from .env file
-load_dotenv()
-
-log_folder = "log/resume/gpt_resum_job_descr"
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-log_path = Path(log_folder).resolve()
-logger.add(log_path / "gpt_resum_job_descr.log", rotation="1 day", compression="zip", retention="7 days", level="DEBUG")
 
 
 class LLMResumeJobDescription(LLMResumer):
@@ -100,31 +84,12 @@ class LLMResumeJobDescription(LLMResumer):
         )
 
     def generate_additional_skills_section(self) -> str:
-        """
-        Generate the additional skills section of the resume.
-        Returns:
-            str: The generated additional skills section.
-        """
-        additional_skills_prompt_template = self._preprocess_template_string(self.strings.prompt_additional_skills)
-        skills = set()
-        if self.resume.experience_details:
-            for exp in self.resume.experience_details:
-                if exp.skills_acquired:
-                    skills.update(exp.skills_acquired)
-
-        if self.resume.education_details:
-            for edu in self.resume.education_details:
-                if edu.exam:
-                    for exam in edu.exam:
-                        skills.update(exam.keys())
-        prompt = ChatPromptTemplate.from_template(additional_skills_prompt_template)
-        chain = prompt | self.llm_cheap | StrOutputParser()
-        output = chain.invoke(
-            {
+        """Generate the additional skills section, enriched with job context."""
+        return super().generate_additional_skills_section(
+            data={
                 "languages": self.resume.languages,
                 "interests": self.resume.interests,
-                "skills": skills,
+                "skills": self._collect_skills(),
                 "job_description": self.job_description,
             }
         )
-        return output

@@ -1,9 +1,8 @@
-"""
-This module contains utility functions for the Resume and Cover Letter Builder service.
-"""
+"""Utility functions for the Resume and Cover Letter Builder service."""
 
-# app/libs/resume_and_cover_builder/utils.py
 import json
+import re
+import textwrap
 import time
 from datetime import datetime
 from typing import Any
@@ -15,7 +14,14 @@ from langchain_openai import ChatOpenAI
 from loguru import logger
 from requests.exceptions import HTTPError as HTTPStatusError
 
+import config as cfg
+
 from .config import global_config
+
+
+def preprocess_template_string(template: str) -> str:
+    """Remove leading whitespace and indentation from a prompt template."""
+    return textwrap.dedent(template)
 
 
 class LLMLogger:
@@ -43,8 +49,8 @@ class LLMLogger:
 
         # Extract model details from the response
         model_name = parsed_reply["response_metadata"]["model_name"]
-        prompt_price_per_token = 0.00000015
-        completion_price_per_token = 0.0000006
+        prompt_price_per_token = cfg.PROMPT_PRICE_PER_TOKEN
+        completion_price_per_token = cfg.COMPLETION_PRICE_PER_TOKEN
 
         # Calculate the total cost of the API call
         total_cost = (input_tokens * prompt_price_per_token) + (output_tokens * completion_price_per_token)
@@ -70,6 +76,18 @@ class LLMLogger:
 class LoggerChatModel:
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
+
+    @staticmethod
+    def parse_wait_time_from_error_message(error_message: str) -> int:
+        """Extract wait time from rate-limit error messages, defaulting to 60s."""
+
+        match = re.search(r"try again in (\d+)s", error_message)
+        if match:
+            return int(match.group(1))
+        match = re.search(r"retry after (\d+)", error_message, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        return 60
 
     def __call__(self, messages: list[dict[str, str]]) -> str:
         max_retries = 15

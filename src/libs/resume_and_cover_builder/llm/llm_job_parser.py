@@ -1,10 +1,9 @@
-import os
-import re  # For email validation
-import tempfile
-import textwrap
-from pathlib import Path
+"""Parse job description pages using an LLM with RAG retrieval."""
 
-from dotenv import load_dotenv
+import os
+import re
+import tempfile
+
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -14,41 +13,26 @@ from langchain_openai import ChatOpenAI
 from langchain_text_splitters import TokenTextSplitter
 from loguru import logger
 
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel
-
-# Load environment variables from the .env file
-load_dotenv()
-
-# Configure the log file
-log_folder = "log/resume/gpt_resume"
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-log_path = Path(log_folder).resolve()
-logger.add(
-    log_path / "gpt_resume.log",
-    rotation="1 day",
-    compression="zip",
-    retention="7 days",
-    level="DEBUG",
-)
+import config as cfg
+from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
 
 
 class LLMParser:
     def __init__(self, openai_api_key: str) -> None:
-        self.llm = LoggerChatModel(ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4))
-        self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)  # Initialize embeddings
-        self.vectorstore = None  # Will be initialized after document loading
+        self.llm = LoggerChatModel(
+            ChatOpenAI(
+                model_name=cfg.LLM_MODEL,
+                openai_api_key=openai_api_key,
+                temperature=cfg.LLM_TEMPERATURE,
+            )
+        )
+        self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+        self.vectorstore = None
 
     @staticmethod
     def _preprocess_template_string(template: str) -> str:
-        """
-        Preprocess the template string by removing leading whitespaces and indentation.
-        Args:
-            template (str): The template string to preprocess.
-        Returns:
-            str: The preprocessed template string.
-        """
-        return textwrap.dedent(template)
+        """Remove leading whitespace and indentation from a template string."""
+        return preprocess_template_string(template)
 
     def set_body_html(self, body_html: str) -> None:
         """

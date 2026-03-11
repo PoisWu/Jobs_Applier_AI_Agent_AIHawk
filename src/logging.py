@@ -14,8 +14,6 @@ def remove_default_loggers() -> None:
     root_logger = logging.getLogger()
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
-    if os.path.exists("log/app.log"):
-        os.remove("log/app.log")
 
 
 def init_loguru_logger() -> None:

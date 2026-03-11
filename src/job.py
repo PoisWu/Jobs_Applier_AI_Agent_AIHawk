@@ -1,10 +1,9 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 from src.logging import logger
 
 
-@dataclass
-class Job:
+class Job(BaseModel):
     role: str = ""
     company: str = ""
     location: str = ""

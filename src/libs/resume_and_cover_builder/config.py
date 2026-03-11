@@ -1,21 +1,16 @@
 """
-This module is used to store the global configuration of the application.
+Configuration for the resume and cover letter builder.
+
+GlobalConfig is initialised once by ResumeFacade and read by every downstream
+module.  Mutations after construction are discouraged — pass a fresh instance
+instead of mutating the module-level ``global_config``.
 """
 
-# app/libs/resume_and_cover_builder/config.py
 from pathlib import Path
 
+from pydantic import BaseModel
 
-class GlobalConfig:
-    def __init__(self) -> None:
-        self.STRINGS_MODULE_RESUME_PATH: Path = None
-        self.STRINGS_MODULE_RESUME_JOB_DESCRIPTION_PATH: Path = None
-        self.STRINGS_MODULE_COVER_LETTER_JOB_DESCRIPTION_PATH: Path = None
-        self.STRINGS_MODULE_NAME: str = None
-        self.STYLES_DIRECTORY: Path = None
-        self.LOG_OUTPUT_FILE_PATH: Path = None
-        self.API_KEY: str = None
-        self.html_template = """<!DOCTYPE html>
+_DEFAULT_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -31,6 +26,13 @@ $body
 </body>
 </html>
 """
+
+
+class GlobalConfig(BaseModel):
+    STYLES_DIRECTORY: Path | None = None
+    LOG_OUTPUT_FILE_PATH: Path | None = None
+    API_KEY: str | None = None
+    html_template: str = _DEFAULT_HTML_TEMPLATE
 
 
 global_config = GlobalConfig()
