@@ -24,6 +24,7 @@ class LLMResumer:
             )
         )
         self.strings = strings
+        self.job_description: str | None = None
 
     @staticmethod
     def _preprocess_template_string(template: str) -> str:
@@ -38,6 +39,16 @@ class LLMResumer:
         """
         self.resume = resume
 
+    def set_job_description_from_text(self, job_description_text: str) -> None:
+        """
+        Summarize and store a job description for use in resume generation.
+        Args:
+            job_description_text (str): The plain text job description to summarize.
+        """
+        prompt = ChatPromptTemplate.from_template(self.strings.summarize_prompt_template)
+        chain = prompt | self.llm_cheap | StrOutputParser()
+        self.job_description = chain.invoke({"text": job_description_text})
+
     def generate_header(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the header section of the resume.
@@ -49,7 +60,12 @@ class LLMResumer:
         header_prompt_template = self._preprocess_template_string(self.strings.prompt_header)
         prompt = ChatPromptTemplate.from_template(header_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
-        input_data = {"personal_information": self.resume.personal_information} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"personal_information": self.resume.personal_information}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         return output
 
@@ -72,7 +88,12 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"education_details": self.resume.education_details} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"education_details": self.resume.education_details}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
@@ -98,7 +119,12 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"experience_details": self.resume.experience_details} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"experience_details": self.resume.experience_details}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
@@ -124,7 +150,12 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"projects": self.resume.projects} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"projects": self.resume.projects}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
@@ -150,14 +181,15 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = (
-            {
+        if data is None:
+            input_data: dict[str, Any] = {
                 "achievements": self.resume.achievements,
                 "certifications": self.resume.certifications,
             }
-            if data is None
-            else data
-        )
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         logger.debug(f"Input data for the chain: {input_data}")
 
         output = chain.invoke(input_data)
@@ -183,7 +215,12 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"certifications": self.resume.certifications} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"certifications": self.resume.certifications}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         logger.debug(f"Input data for the chain: {input_data}")
 
         output = chain.invoke(input_data)
@@ -212,15 +249,16 @@ class LLMResumer:
 
         prompt = ChatPromptTemplate.from_template(additional_skills_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
-        input_data = (
-            {
+        if data is None:
+            input_data: dict[str, Any] = {
                 "languages": self.resume.languages,
                 "interests": self.resume.interests,
                 "skills": self._collect_skills(),
             }
-            if data is None
-            else data
-        )
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
 
         return output

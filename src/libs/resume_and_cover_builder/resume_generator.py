@@ -8,7 +8,6 @@ from typing import Any
 
 from src.libs.resume_and_cover_builder.llm.llm_generate_cover_letter_from_job import LLMCoverLetterJobDescription
 from src.libs.resume_and_cover_builder.llm.llm_generate_resume import LLMResumer
-from src.libs.resume_and_cover_builder.llm.llm_generate_resume_from_job import LLMResumeJobDescription
 from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
     cover_letter as cover_letter_strings,
 )
@@ -51,7 +50,7 @@ class ResumeGenerator:
         return self._create_resume(gpt_answerer, style_path)
 
     def create_resume_job_description_text(self, style_path: str, job_description_text: str) -> str:
-        gpt_answerer = LLMResumeJobDescription(builder_config.API_KEY, job_desc_strings)
+        gpt_answerer = LLMResumer(builder_config.API_KEY, job_desc_strings)
         gpt_answerer.set_job_description_from_text(job_description_text)
         return self._create_resume(gpt_answerer, style_path)
 
