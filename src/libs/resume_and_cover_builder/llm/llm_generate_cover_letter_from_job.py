@@ -1,54 +1,32 @@
-"""
-This creates the cover letter (in html, utils will then convert in PDF) matching with job description and plain-text resume
-"""
+"""Generate a cover letter matching a job description using an LLM."""
 
-# app/libs/resume_and_cover_builder/llm_generate_cover_letter_from_job.py
-import os
-import textwrap
 import types
-from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from loguru import logger
 
+import config as cfg
+from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
 from src.resume_schemas.resume import Resume
-
-from ..utils import LoggerChatModel
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Configure log file
-log_folder = "log/cover_letter/gpt_cover_letter_job_descr"
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-log_path = Path(log_folder).resolve()
-logger.add(
-    log_path / "gpt_cover_letter_job_descr.log", rotation="1 day", compression="zip", retention="7 days", level="DEBUG"
-)
 
 
 class LLMCoverLetterJobDescription:
     def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
         self.llm_cheap = LoggerChatModel(
-            ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4)
+            ChatOpenAI(
+                model_name=cfg.LLM_MODEL,
+                openai_api_key=openai_api_key,
+                temperature=cfg.LLM_TEMPERATURE,
+            )
         )
-        self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
         self.strings = strings
 
     @staticmethod
     def _preprocess_template_string(template: str) -> str:
-        """
-        Preprocess the template string by removing leading whitespace and indentation.
-        Args:
-            template (str): The template string to preprocess.
-        Returns:
-            str: The preprocessed template string.
-        """
-        return textwrap.dedent(template)
+        """Remove leading whitespace and indentation from a template string."""
+        return preprocess_template_string(template)
 
     def set_resume(self, resume: Resume) -> None:
         """

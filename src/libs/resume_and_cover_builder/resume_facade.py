@@ -1,8 +1,5 @@
-"""
-This module contains the FacadeManager class, which is responsible for managing the interaction between the user and other components of the application.
-"""
+"""Facade managing the interaction between user, LLM, and PDF generation."""
 
-# app/libs/resume_and_cover_builder/manager_facade.py
 import hashlib
 from pathlib import Path
 
@@ -10,12 +7,13 @@ import inquirer
 from loguru import logger
 from selenium import webdriver
 
+import config as cfg
 from src.job import Job
 from src.libs.resume_and_cover_builder.llm.llm_job_parser import LLMParser
 from src.libs.resume_and_cover_builder.resume_generator import ResumeGenerator
 from src.libs.resume_and_cover_builder.style_manager import StyleManager
 from src.resume_schemas.resume import Resume
-from src.utils.chrome_utils import HTML_to_PDF
+from src.utils.chrome_utils import html_to_pdf
 
 from .config import global_config
 
@@ -29,24 +27,16 @@ class ResumeFacade:
         resume_object: Resume,
         output_path: Path,
     ) -> None:
-        """
-        Initialize the FacadeManager with the given API key, style manager, resume generator, resume object, and log path.
+        """Initialise the facade and configure the global builder config.
+
         Args:
-            api_key (str): The OpenAI API key to be used for generating text.
-            style_manager (StyleManager): The StyleManager instance to manage the styles.
-            resume_generator (ResumeGenerator): The ResumeGenerator instance to generate resumes and cover letters.
-            resume_object (str): The resume object to be used for generating resumes and cover letters.
-            output_path (str): The path to the log file.
+            api_key: The OpenAI API key.
+            style_manager: Manages available CSS styles.
+            resume_generator: Generates HTML resumes / cover letters.
+            resume_object: Parsed resume data.
+            output_path: Directory for generated artefacts.
         """
         lib_directory = Path(__file__).resolve().parent
-        global_config.STRINGS_MODULE_RESUME_PATH = lib_directory / "resume_prompt/strings_feder-cr.py"
-        global_config.STRINGS_MODULE_RESUME_JOB_DESCRIPTION_PATH = (
-            lib_directory / "resume_job_description_prompt/strings_feder-cr.py"
-        )
-        global_config.STRINGS_MODULE_COVER_LETTER_JOB_DESCRIPTION_PATH = (
-            lib_directory / "cover_letter_prompt/strings_feder-cr.py"
-        )
-        global_config.STRINGS_MODULE_NAME = "strings_feder_cr"
         global_config.STYLES_DIRECTORY = lib_directory / "resume_style"
         global_config.LOG_OUTPUT_FILE_PATH = output_path
         global_config.API_KEY = api_key
@@ -102,13 +92,10 @@ class ResumeFacade:
         logger.info(f"Extracting job details from URL: {job_url}")
 
     def create_resume_pdf_job_tailored(self) -> tuple[bytes, str]:
-        """
-        Create a resume PDF using the selected style and the given job description text.
-        Args:
-            job_url (str): The job URL to generate the hash for.
-            job_description_text (str): The job description text to include in the resume.
+        """Create a job-tailored resume PDF.
+
         Returns:
-            tuple: A tuple containing the PDF content as bytes and the unique filename.
+            tuple: (PDF base64 string, suggested output folder name).
         """
         style_path = self.style_manager.get_style_path()
         if style_path is None:
@@ -116,39 +103,32 @@ class ResumeFacade:
 
         html_resume = self.resume_generator.create_resume_job_description_text(style_path, self.job.description)
 
-        # Generate a unique name using the job URL hash
-        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[:10]
+        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[: cfg.HASH_PREFIX_LENGTH]
 
-        result = HTML_to_PDF(html_resume, self.driver)
+        result = html_to_pdf(html_resume, self.driver)
         self.driver.quit()
         return result, suggested_name
 
-    def create_resume_pdf(self) -> tuple[bytes, str]:
-        """
-        Create a resume PDF using the selected style and the given job description text.
-        Args:
-            job_url (str): The job URL to generate the hash for.
-            job_description_text (str): The job description text to include in the resume.
+    def create_resume_pdf(self) -> bytes:
+        """Create a base resume PDF (no job tailoring).
+
         Returns:
-            tuple: A tuple containing the PDF content as bytes and the unique filename.
+            bytes: PDF content as a base64-encoded string.
         """
         style_path = self.style_manager.get_style_path()
         if style_path is None:
             raise ValueError("You must choose a style before generating the PDF.")
 
         html_resume = self.resume_generator.create_resume(style_path)
-        result = HTML_to_PDF(html_resume, self.driver)
+        result = html_to_pdf(html_resume, self.driver)
         self.driver.quit()
         return result
 
     def create_cover_letter(self) -> tuple[bytes, str]:
-        """
-        Create a cover letter based on the given job description text and job URL.
-        Args:
-            job_url (str): The job URL to generate the hash for.
-            job_description_text (str): The job description text to include in the cover letter.
+        """Create a cover letter PDF tailored to the linked job.
+
         Returns:
-            tuple: A tuple containing the PDF content as bytes and the unique filename.
+            tuple: (PDF base64 string, suggested output folder name).
         """
         style_path = self.style_manager.get_style_path()
         if style_path is None:
@@ -156,9 +136,8 @@ class ResumeFacade:
 
         cover_letter_html = self.resume_generator.create_cover_letter_job_description(style_path, self.job.description)
 
-        # Generate a unique name using the job URL hash
-        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[:10]
+        suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[: cfg.HASH_PREFIX_LENGTH]
 
-        result = HTML_to_PDF(cover_letter_html, self.driver)
+        result = html_to_pdf(cover_letter_html, self.driver)
         self.driver.quit()
         return result, suggested_name

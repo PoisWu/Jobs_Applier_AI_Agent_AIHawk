@@ -1,58 +1,34 @@
-"""
-Create a class that generates a resume based on a resume and a resume template.
-"""
+"""Generate a resume from structured data using an LLM."""
 
-# app/libs/resume_and_cover_builder/gpt_resume.py
-import os
-import textwrap
 import types
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from loguru import logger
 
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel
+import config as cfg
+from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
 from src.resume_schemas.resume import Resume
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Configure log file
-log_folder = "log/resume/gpt_resume"
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-log_path = Path(log_folder).resolve()
-logger.add(
-    log_path / "gpt_resume.log",
-    rotation="1 day",
-    compression="zip",
-    retention="7 days",
-    level="DEBUG",
-)
 
 
 class LLMResumer:
     def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
         self.llm_cheap = LoggerChatModel(
-            ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4)
+            ChatOpenAI(
+                model_name=cfg.LLM_MODEL,
+                openai_api_key=openai_api_key,
+                temperature=cfg.LLM_TEMPERATURE,
+            )
         )
         self.strings = strings
 
     @staticmethod
     def _preprocess_template_string(template: str) -> str:
-        """
-        Preprocess the template string by removing leading whitespace and indentation.
-        Args:
-            template (str): The template string to preprocess.
-        Returns:
-            str: The preprocessed template string.
-        """
-        return textwrap.dedent(template)
+        """Remove leading whitespace and indentation from a template string."""
+        return preprocess_template_string(template)
 
     def set_resume(self, resume: Resume) -> None:
         """
@@ -216,32 +192,31 @@ class LLMResumer:
         logger.debug("Certifications section generation completed")
         return output
 
-    def generate_additional_skills_section(self, data: dict[str, Any] | None = None) -> str:
-        """
-        Generate the additional skills section of the resume.
-        Returns:
-            str: The generated additional skills section.
-        """
-        additional_skills_prompt_template = self._preprocess_template_string(self.strings.prompt_additional_skills)
-
-        skills = set()
+    def _collect_skills(self) -> set[str]:
+        """Gather skills from experience and education details."""
+        skills: set[str] = set()
         if self.resume.experience_details:
             for exp in self.resume.experience_details:
                 if exp.skills_acquired:
                     skills.update(exp.skills_acquired)
-
         if self.resume.education_details:
             for edu in self.resume.education_details:
                 if edu.exam:
                     for exam in edu.exam:
                         skills.update(exam.keys())
+        return skills
+
+    def generate_additional_skills_section(self, data: dict[str, Any] | None = None) -> str:
+        """Generate the additional skills section of the resume."""
+        additional_skills_prompt_template = self._preprocess_template_string(self.strings.prompt_additional_skills)
+
         prompt = ChatPromptTemplate.from_template(additional_skills_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
         input_data = (
             {
                 "languages": self.resume.languages,
                 "interests": self.resume.interests,
-                "skills": skills,
+                "skills": self._collect_skills(),
             }
             if data is None
             else data

@@ -20,3 +20,18 @@ LLM_MODEL_TYPE = "openai"
 LLM_MODEL = "gpt-4o-mini"
 # Only required for OLLAMA models
 LLM_API_URL = ""
+
+# LLM tuning
+LLM_TEMPERATURE = 0.4
+
+# Token pricing (for cost tracking)
+PROMPT_PRICE_PER_TOKEN = 0.00000015
+COMPLETION_PRICE_PER_TOKEN = 0.0000006
+
+# Retry configuration
+MAX_LLM_RETRIES = 15
+BASE_RETRY_DELAY = 10
+
+# Output
+OUTPUT_DIR = "data_folder/output"
+HASH_PREFIX_LENGTH = 10
