@@ -18,7 +18,7 @@ from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
 from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
     resume_job_description as job_desc_strings,
 )
-from src.resume_schemas.resume import Resume
+from src.schemas.resume import Resume
 
 from .config import global_config
 

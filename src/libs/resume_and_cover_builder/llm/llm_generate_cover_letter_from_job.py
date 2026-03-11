@@ -9,7 +9,7 @@ from loguru import logger
 
 from config import settings
 from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
-from src.resume_schemas.resume import Resume
+from src.schemas.resume import Resume
 
 
 class LLMCoverLetterJobDescription:

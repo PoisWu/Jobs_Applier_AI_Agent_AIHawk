@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.resume_schemas.job_application_profile import JobApplicationProfile
-from src.resume_schemas.resume import Resume
+from src.schemas.job_application_profile import JobApplicationProfile
+from src.schemas.resume import Resume
 
 
 class TestResume:

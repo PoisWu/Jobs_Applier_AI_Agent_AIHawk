@@ -4,7 +4,7 @@ import yaml
 from pydantic import BaseModel
 
 from src.logging import logger
-from src.resume_schemas.common import (
+from src.schemas.common import (
     Availability,
     LegalAuthorization,
     SalaryExpectations,

@@ -12,7 +12,7 @@ from src.job import Job
 from src.libs.resume_and_cover_builder.llm.llm_job_parser import LLMParser
 from src.libs.resume_and_cover_builder.resume_generator import ResumeGenerator
 from src.libs.resume_and_cover_builder.style_manager import StyleManager
-from src.resume_schemas.resume import Resume
+from src.schemas.resume import Resume
 from src.utils.chrome_utils import html_to_pdf
 
 from .config import global_config

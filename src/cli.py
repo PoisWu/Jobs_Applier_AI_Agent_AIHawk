@@ -7,7 +7,7 @@ import inquirer
 
 from src.libs.resume_and_cover_builder import ResumeFacade, ResumeGenerator, StyleManager
 from src.logging import logger
-from src.resume_schemas.resume import Resume
+from src.schemas.resume import Resume
 from src.utils.chrome_utils import init_browser
 
 
