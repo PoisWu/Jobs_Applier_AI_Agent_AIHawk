@@ -3,8 +3,6 @@
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.utils.constants import ERROR
-
 
 class Settings(BaseSettings):
     """Application settings. All fields can be overridden by environment
@@ -19,7 +17,7 @@ class Settings(BaseSettings):
 
     # Logging — fields prefixed LOG_ are consumed by src/logging.py
     LOG_LEVEL: str = "DEBUG"
-    LOG_SELENIUM_LEVEL: str = ERROR
+    LOG_SELENIUM_LEVEL: str = "ERROR"
     LOG_TO_FILE: bool = True
     LOG_TO_CONSOLE: bool = True
 
