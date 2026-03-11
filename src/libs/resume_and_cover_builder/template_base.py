@@ -40,14 +40,14 @@ prompt_header_template = """
 <header>
   <h1>[Name and Surname]</h1>
   <div class="contact-info">
-    <p class="contact-line">[Your Prefix Phone number] <span class="separator">&#9670;</span> [Nationality or Country]</p>
-    <p class="contact-line"><a href="mailto:[Your Email]">[Your Email]</a> <span class="separator">&#9670;</span> <a href="[Link LinkedIn account]">[LinkedIn display text, e.g. linkedin.com/in/username]</a></p>
+    <p class="contact-line">[Your Prefix Phone number] <span class="separator">◇</span> [Nationality or Country]</p>
+    <p class="contact-line"><a href="mailto:[Your Email]">[Your Email]</a> <span class="separator">◇</span> <a href="[Link LinkedIn account]">[LinkedIn display text, e.g. linkedin.com/in/username]</a></p>
   </div>
 </header>
 ```
 Important formatting rules:
 - The name must NOT be uppercase; use normal title case exactly as provided (e.g. "Cheng-Yen Wu").
-- Use the diamond symbol &#9670; as separator between contact items on the same line.
+- Use the diamond symbol ◇ (U+25C7, LaTeX $\diamond$) as separator between contact items on the same line.
 - If LinkedIn or GitHub or any field is not provided (None), omit that item from the contact line.
 - If GitHub is provided, add it to the second contact line after LinkedIn, separated by a diamond.
 - Do not use any Font Awesome icon classes.

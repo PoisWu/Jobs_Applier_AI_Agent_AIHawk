@@ -13,7 +13,7 @@ prompt_header = (
 Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to create a professional and polished header for the resume. The header should:
 
 1. **Contact Information**: Include your full name, phone number, nationality or country, email address, and LinkedIn profile. If GitHub is provided, include it too.
-2. **Formatting**: Use centered text with diamond (&#9670;) separators between items on the same line. Do NOT use Font Awesome icons.
+2. **Formatting**: Use centered text with diamond (◇) separators between items on the same line. Do NOT use Font Awesome icons.
 3. **Name**: Use the exact name as provided in title case. Do NOT uppercase the entire name.
 
 Exclude any information that is not provided (None).
