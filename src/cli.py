@@ -8,7 +8,6 @@ import inquirer
 from src.app_config import AppConfig
 from src.libs.resume_and_cover_builder import ResumeFacade, ResumeGenerator, StyleManager
 from src.logging import logger
-from src.schemas.resume import Resume
 from src.utils.chrome_utils import init_browser
 
 
@@ -42,19 +41,15 @@ def _select_style(style_manager: StyleManager) -> None:
 
 def _build_facade(app_config: AppConfig, style_manager: StyleManager) -> tuple[ResumeFacade, ResumeGenerator]:
     """Build and return a configured ResumeFacade with shared setup logic."""
-    with open(app_config.uploads["plainTextResume"], encoding="utf-8") as file:
-        plain_text_resume = file.read()
-
     resume_generator = ResumeGenerator()
-    resume_object = Resume(plain_text_resume)
     driver = init_browser()
-    resume_generator.set_resume_object(resume_object)
+    resume_generator.set_resume_object(app_config.resume_object)
 
     resume_facade = ResumeFacade(
         api_key=app_config.secrets.llm_api_key,
         style_manager=style_manager,
         resume_generator=resume_generator,
-        resume_object=resume_object,
+        resume_object=app_config.resume_object,
         output_path=Path("data_folder/output"),
     )
     resume_facade.set_driver(driver)

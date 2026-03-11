@@ -6,6 +6,7 @@ from typing import Annotated, ClassVar
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from src.schemas.resume import Resume
 from src.utils.constants import PLAIN_TEXT_RESUME_YAML, SECRETS_YAML, WORK_PREFERENCES_YAML
 
 
@@ -163,7 +164,7 @@ class AppConfig(BaseModel):
 
     preferences: WorkPreferencesConfig
     secrets: SecretsConfig
-    uploads: dict
+    resume_object: Resume
     output_dir: Path
 
     @classmethod
@@ -179,9 +180,13 @@ class AppConfig(BaseModel):
         output_folder = data_folder / "output"
         output_folder.mkdir(exist_ok=True)
 
+        resume_path = data_folder / PLAIN_TEXT_RESUME_YAML
+        with open(resume_path, encoding="utf-8") as f:
+            resume_object = Resume(f.read())
+
         return cls(
             preferences=WorkPreferencesConfig.from_yaml(data_folder / WORK_PREFERENCES_YAML),
             secrets=SecretsConfig.from_yaml(data_folder / SECRETS_YAML),
-            uploads={"plainTextResume": data_folder / PLAIN_TEXT_RESUME_YAML},
+            resume_object=resume_object,
             output_dir=output_folder,
         )
