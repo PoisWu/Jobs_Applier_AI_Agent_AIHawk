@@ -8,7 +8,8 @@ from langchain_openai import ChatOpenAI
 from loguru import logger
 
 from config import settings
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
+from src.libs.resume_and_cover_builder.llm.llm_chat_model import LoggerChatModel
+from src.libs.resume_and_cover_builder.utils import preprocess_template_string
 from src.schemas.resume import Resume
 
 
@@ -22,11 +23,6 @@ class LLMCoverLetterJobDescription:
             )
         )
         self.strings = strings
-
-    @staticmethod
-    def _preprocess_template_string(template: str) -> str:
-        """Remove leading whitespace and indentation from a template string."""
-        return preprocess_template_string(template)
 
     def set_resume(self, resume: Resume) -> None:
         """
@@ -56,7 +52,7 @@ class LLMCoverLetterJobDescription:
             str: The generated cover letter
         """
         logger.debug("Starting cover letter generation...")
-        prompt_template = self._preprocess_template_string(self.strings.cover_letter_template)
+        prompt_template = preprocess_template_string(self.strings.cover_letter_template)
         logger.debug(f"Cover letter template after preprocessing: {prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(prompt_template)

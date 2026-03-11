@@ -14,7 +14,7 @@ from langchain_text_splitters import TokenTextSplitter
 from loguru import logger
 
 from config import settings
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
+from src.libs.resume_and_cover_builder.llm.llm_chat_model import LoggerChatModel
 
 
 class LLMParser:
@@ -28,11 +28,6 @@ class LLMParser:
         )
         self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
         self.vectorstore = None
-
-    @staticmethod
-    def _preprocess_template_string(template: str) -> str:
-        """Remove leading whitespace and indentation from a template string."""
-        return preprocess_template_string(template)
 
     def set_body_html(self, body_html: str) -> None:
         """

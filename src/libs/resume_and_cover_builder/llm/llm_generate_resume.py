@@ -10,7 +10,8 @@ from langchain_openai import ChatOpenAI
 from loguru import logger
 
 from config import settings
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel, preprocess_template_string
+from src.libs.resume_and_cover_builder.llm.llm_chat_model import LoggerChatModel
+from src.libs.resume_and_cover_builder.utils import preprocess_template_string
 from src.schemas.resume import Resume
 
 
@@ -25,11 +26,6 @@ class LLMResumer:
         )
         self.strings = strings
         self.job_description: str | None = None
-
-    @staticmethod
-    def _preprocess_template_string(template: str) -> str:
-        """Remove leading whitespace and indentation from a template string."""
-        return preprocess_template_string(template)
 
     def set_resume(self, resume: Resume) -> None:
         """
@@ -57,7 +53,7 @@ class LLMResumer:
         Returns:
             str: The generated header section.
         """
-        header_prompt_template = self._preprocess_template_string(self.strings.prompt_header)
+        header_prompt_template = preprocess_template_string(self.strings.prompt_header)
         prompt = ChatPromptTemplate.from_template(header_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
         if data is None:
@@ -79,7 +75,7 @@ class LLMResumer:
         """
         logger.debug("Starting education section generation")
 
-        education_prompt_template = self._preprocess_template_string(self.strings.prompt_education)
+        education_prompt_template = preprocess_template_string(self.strings.prompt_education)
         logger.debug(f"Education template: {education_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(education_prompt_template)
@@ -110,7 +106,7 @@ class LLMResumer:
         """
         logger.debug("Starting work experience section generation")
 
-        work_experience_prompt_template = self._preprocess_template_string(self.strings.prompt_working_experience)
+        work_experience_prompt_template = preprocess_template_string(self.strings.prompt_working_experience)
         logger.debug(f"Work experience template: {work_experience_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(work_experience_prompt_template)
@@ -141,7 +137,7 @@ class LLMResumer:
         """
         logger.debug("Starting side projects section generation")
 
-        projects_prompt_template = self._preprocess_template_string(self.strings.prompt_projects)
+        projects_prompt_template = preprocess_template_string(self.strings.prompt_projects)
         logger.debug(f"Side projects template: {projects_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(projects_prompt_template)
@@ -172,7 +168,7 @@ class LLMResumer:
         """
         logger.debug("Starting achievements section generation")
 
-        achievements_prompt_template = self._preprocess_template_string(self.strings.prompt_achievements)
+        achievements_prompt_template = preprocess_template_string(self.strings.prompt_achievements)
         logger.debug(f"Achievements template: {achievements_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(achievements_prompt_template)
@@ -206,7 +202,7 @@ class LLMResumer:
         """
         logger.debug("Starting Certifications section generation")
 
-        certifications_prompt_template = self._preprocess_template_string(self.strings.prompt_certifications)
+        certifications_prompt_template = preprocess_template_string(self.strings.prompt_certifications)
         logger.debug(f"Certifications template: {certifications_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(certifications_prompt_template)
@@ -245,7 +241,7 @@ class LLMResumer:
 
     def generate_additional_skills_section(self, data: dict[str, Any] | None = None) -> str:
         """Generate the additional skills section of the resume."""
-        additional_skills_prompt_template = self._preprocess_template_string(self.strings.prompt_additional_skills)
+        additional_skills_prompt_template = preprocess_template_string(self.strings.prompt_additional_skills)
 
         prompt = ChatPromptTemplate.from_template(additional_skills_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
