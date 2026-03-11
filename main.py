@@ -3,30 +3,16 @@
 import traceback
 from pathlib import Path
 
-from src.app_config import AppConfig, ConfigError, SecretsConfig, WorkPreferencesConfig
+from src.app_config import AppConfig, ConfigError
 from src.cli import handle_inquiries, prompt_user_action
-from src.file_manager import FileManager
 from src.logging import logger
 
 
 def main():
     """Main entry point for the AIHawk Job Application Bot."""
     try:
-        # Define and validate the data folder
-        data_folder = Path("data_folder")
-        secrets_file, config_file, plain_text_resume_file, output_folder = FileManager.validate_data_folder(data_folder)
-
-        # Validate configuration and secrets
-        preferences = WorkPreferencesConfig.from_yaml(config_file)
-        secrets = SecretsConfig.from_yaml(secrets_file)
-
-        # Bundle into a single typed application config
-        app_config = AppConfig(
-            preferences=preferences,
-            secrets=secrets,
-            uploads=FileManager.get_uploads(plain_text_resume_file),
-            output_dir=output_folder,
-        )
+        # Load and validate all configuration from the data folder
+        app_config = AppConfig.from_data_folder(Path("data_folder"))
 
         # Interactive prompt for user to select actions
         selected_actions = prompt_user_action()

@@ -1,10 +1,12 @@
 """Application configuration: validation models and runtime app config."""
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from src.utils.constants import PLAIN_TEXT_RESUME_YAML, SECRETS_YAML, WORK_PREFERENCES_YAML
 
 
 class ConfigError(Exception):
@@ -157,7 +159,29 @@ class AppConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    REQUIRED_FILES: ClassVar[list[str]] = [SECRETS_YAML, WORK_PREFERENCES_YAML, PLAIN_TEXT_RESUME_YAML]
+
     preferences: WorkPreferencesConfig
     secrets: SecretsConfig
     uploads: dict
     output_dir: Path
+
+    @classmethod
+    def from_data_folder(cls, data_folder: Path) -> "AppConfig":
+        """Validate data folder, load configs, and return a fully initialised AppConfig."""
+        if not data_folder.is_dir():
+            raise FileNotFoundError(f"Data folder not found: {data_folder}")
+
+        missing = [f for f in cls.REQUIRED_FILES if not (data_folder / f).exists()]
+        if missing:
+            raise FileNotFoundError(f"Missing files in data folder: {', '.join(missing)}")
+
+        output_folder = data_folder / "output"
+        output_folder.mkdir(exist_ok=True)
+
+        return cls(
+            preferences=WorkPreferencesConfig.from_yaml(data_folder / WORK_PREFERENCES_YAML),
+            secrets=SecretsConfig.from_yaml(data_folder / SECRETS_YAML),
+            uploads={"plainTextResume": data_folder / PLAIN_TEXT_RESUME_YAML},
+            output_dir=output_folder,
+        )
