@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     JOB_MIN_APPLICATIONS: int = 1
 
     LLM_MODEL_TYPE: str = "openai"
-    LLM_MODEL: str = "gpt-5-mini"
+    LLM_MODEL: str = "gpt-5.4"
     # Only required for OLLAMA models
     LLM_API_URL: str = ""
 

@@ -94,9 +94,8 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
 
     return (
         "Act as an HR expert and resume writer specialising in ATS-friendly resumes. "
-        "Your task is to generate a COMPLETE HTML resume in a SINGLE output.\n"
-        "The `<header>` element (name and contact) is rendered FIRST and stands OUTSIDE `<main>`. "
-        "Inside `<main>`, render sections in this exact order: Summary, Work Experience, Education, "
+        "Your task is to generate the `<main>` section of an HTML resume.\n"
+        "Render sections in this exact order: Summary, Work Experience, Education, "
         "Projects, Achievements, Certifications, Skills. Sections MUST appear in this exact order. "
         "Skip any section entirely if its corresponding data is None or an empty list.\n"
         "Aim for a single-page output. Keep each bullet point to one line. "
@@ -110,9 +109,6 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
         "---\n\n"
         "**Final Output Rules:**\n"
         "Your output structure MUST follow this exact skeleton:\n"
-        "<header>\\n"
-        "  [header content — name and contact]\\n"
-        "</header>\\n"
         "<main>\\n"
         "  [Summary section]\\n"
         "  [Work Experience section]\\n"
@@ -122,8 +118,7 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
         "  [Certifications section]\\n"
         "  [Skills section]\\n"
         "</main>\\n"
-        "- `<header>` MUST be the very first element. `<main>` MUST follow directly after `<header>`.\n"
-        "- Do NOT include `<body>` tags.\n"
+        "- Do NOT include `<header>`, `<body>`, or any tags outside `<main>`.\n"
         "- Do NOT include ```html ``` code fences.\n"
         "- No explanations or additional text outside the HTML.\n"
         "- Before emitting HTML, verify: (1) no placeholder text of the form `[...]` appears, "
@@ -139,39 +134,6 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
 # ---------------------------------------------------------------------------
 
 resume = SimpleNamespace(
-    prompt_header=(
-        """\
-
-Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to create a professional and polished header for the resume. The header should:
-
-1. **Contact Information**: Include your full name, phone number, nationality or country, email address, and LinkedIn profile. If GitHub is provided, include it too.
-2. **Formatting**: Use centered text with diamond (◇) separators between items on the same line. Do NOT use Font Awesome icons.
-3. **Name**: Use the exact name as provided in title case. Do NOT uppercase the entire name.
-
-Exclude any information that is not provided (None).
-
-- **My information:**
-  {personal_information}
-
-- **Template to Use**
-```
-<header>
-  <h1>[Name and Surname]</h1>
-  <div class="contact-info">
-    <p class="contact-line">[Your Prefix Phone number] <span class="separator">◇</span> [Nationality or Country]</p>
-    <p class="contact-line"><a href="mailto:[Your Email]">[Your Email]</a> <span class="separator">◇</span> <a href="[Link LinkedIn account]">[LinkedIn display text, e.g. linkedin.com/in/username]</a></p>
-  </div>
-</header>
-```
-Important formatting rules:
-- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "[First Last]").
-- Use the diamond symbol ◇ (U+25C7, LaTeX $\\diamond$) as separator between contact items on the same line.
-- If LinkedIn or GitHub or any field is not provided (None), omit that item from the contact line.
-- If GitHub is provided, add it to the second contact line after LinkedIn, separated by a diamond.
-- Do not use any Font Awesome icon classes.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
-"""
-    ),
     prompt_education=(
         """\
 
@@ -419,12 +381,19 @@ The results should be provided in html format, Provide only the html code for th
 
 resume.prompt_summary = """\
 
-Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to write a concise professional summary of exactly 3 sentences:
-1. Sentence 1 MUST begin with a specific number of years (e.g. "3+ years of experience in…"). Do NOT use vague openers like "with experience in". Cover core technical domains (e.g. AI/ML Engineering, Cloud Infrastructure, Cybersecurity).
-2. The single most impactful quantified achievement from the most recent role.
-3. Educational background (institutions and fields of study).
+Act as an expert HR recruiter and resume writer specializing in ATS-friendly resumes. Your task is to write a compelling professional summary (roughly 50 words) that acts as a "sales pitch" to grab a recruiter's attention by answering: "Why should we hire you?"
 
-Do NOT use first-person pronouns. Do NOT add a section heading — output only the `<section>` element.
+Follow these guidelines:
+1. **Opening Sentence**: Start with the candidate's current title and years of experience using a strong, descriptive headline (e.g., "Result-driven Software Engineer with 5+ years of experience in..."). Do NOT open with vague phrases like "with experience in". Do NOT use first-person pronouns (no "I am...").
+2. **Key Skills & Expertise**: Mention 2–3 core skills or technical domains most relevant to the candidate's background.
+3. **Quantifiable Achievement**: Include at least one measurable achievement using numbers or percentages (e.g., "increased efficiency by 20%").
+4. **Value Addition**: Briefly state the candidate's career goal or what they bring to a prospective employer.
+
+Rules:
+- Keep it roughely 50 words.
+- Do NOT use first-person pronouns.
+- Avoid clichés like "hard-working team player"; use action-oriented, professional language.
+- Do NOT add a section heading — output only the `<section>` element.
 
 - **My information:**
   Personal: {personal_information}
@@ -435,7 +404,7 @@ Do NOT use first-person pronouns. Do NOT add a section heading — output only t
 ```
 <section id="summary">
     <h2>Summary</h2>
-    <p>[3-sentence professional summary]</p>
+    <p>[3–4 sentence professional summary, roughly 50 words]</p>
 </section>
 ```
 The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
@@ -449,39 +418,6 @@ resume.prompt_full_resume = _build_full_resume_prompt(resume)
 
 resume_job_description = SimpleNamespace(
     summarize_prompt_template=_summarize_prompt_template,
-    prompt_header=(
-        """\
-
-Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to create a professional and polished header for the resume. The header should:
-
-1. **Contact Information**: Include your full name, phone number, nationality or country, email address, and LinkedIn profile. If GitHub is provided, include it too.
-2. **Formatting**: Use centered text with diamond (◇) separators between items on the same line. Do NOT use Font Awesome icons.
-3. **Name**: Use the exact name as provided in title case. Do NOT uppercase the entire name.
-
-If any of the contact information fields are not provided (i.e., `None`), omit them from the header.
-
-- **My information:**
-  {personal_information}
-
-- **Template to Use**
-```
-<header>
-  <h1>[Name and Surname]</h1>
-  <div class="contact-info">
-    <p class="contact-line">[Your Prefix Phone number] <span class="separator">◇</span> [Nationality or Country]</p>
-    <p class="contact-line"><a href="mailto:[Your Email]">[Your Email]</a> <span class="separator">◇</span> <a href="[Link LinkedIn account]">[LinkedIn display text, e.g. linkedin.com/in/username]</a></p>
-  </div>
-</header>
-```
-Important formatting rules:
-- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "[First Last]").
-- Use the diamond symbol ◇ (U+25C7, LaTeX $\\diamond$) as separator between contact items on the same line.
-- If LinkedIn or GitHub or any field is not provided (None), omit that item from the contact line.
-- If GitHub is provided, add it to the second contact line after LinkedIn, separated by a diamond.
-- Do not use any Font Awesome icon classes.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
-"""
-    ),
     prompt_education=(
         """\
 
@@ -757,12 +693,20 @@ The results should be provided in html format, Provide only the html code for th
 
 resume_job_description.prompt_summary = """\
 
-Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to write a concise professional summary of exactly 3 sentences tailored to the job description:
-1. Sentence 1 MUST begin with a specific number of years (e.g. "3+ years of experience in…"). Do NOT use vague openers like "with experience in". Cover core technical domains most relevant to the job description.
-2. The single most impactful quantified achievement from the most recent role that aligns with the job.
-3. Educational background (institutions and fields of study).
+Act as an expert HR recruiter and resume writer specializing in ATS-friendly resumes. Your task is to write a compelling professional summary (50–100 words, 3–4 sentences) tailored to the job description, acting as a "sales pitch" to grab the recruiter's attention by answering: "Why should we hire you for this role?"
 
-Do NOT use first-person pronouns. Do NOT add a section heading — output only the `<section>` element.
+Follow these guidelines:
+1. **Opening Sentence**: Start with the candidate's current title and years of experience using a strong, descriptive headline (e.g., "Result-driven Software Engineer with 5+ years of experience in..."). Do NOT open with vague phrases like "with experience in". Do NOT use first-person pronouns (no "I am...").
+2. **Key Skills & Expertise**: Mention 2–3 core skills most relevant to the job description.
+3. **Quantifiable Achievement**: Include at least one measurable achievement using numbers or percentages that aligns with the role (e.g., "increased efficiency by 20%").
+4. **Value Addition**: Briefly state what the candidate brings to this specific company or role.
+
+Rules:
+- Keep it between 50–100 words.
+- Tailor every sentence to match the specific job description.
+- Do NOT use first-person pronouns.
+- Avoid clichés like "hard-working team player"; use action-oriented, professional language.
+- Do NOT add a section heading — output only the `<section>` element.
 
 - **My information:**
   Personal: {personal_information}
@@ -776,7 +720,7 @@ Do NOT use first-person pronouns. Do NOT add a section heading — output only t
 ```
 <section id="summary">
     <h2>Summary</h2>
-    <p>[3-sentence professional summary tailored to the job]</p>
+    <p>[3–4 sentence professional summary tailored to the job, 50–100 words]</p>
 </section>
 ```
 The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
