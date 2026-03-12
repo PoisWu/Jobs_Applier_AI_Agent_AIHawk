@@ -65,6 +65,30 @@ class LLMResumer:
         output = chain.invoke(input_data)
         return output
 
+    def generate_summary_section(self, data: dict[str, Any] | None = None) -> str:
+        """
+        Generate the professional summary section of the resume.
+        Args:
+            data (dict): Optional override data for the prompt variables.
+        Returns:
+            str: The generated summary section HTML.
+        """
+        summary_prompt_template = preprocess_template_string(self.strings.prompt_summary)
+        prompt = ChatPromptTemplate.from_template(summary_prompt_template)
+        chain = prompt | self.llm_cheap | StrOutputParser()
+        if data is None:
+            input_data: dict[str, Any] = {
+                "personal_information": self.resume.personal_information,
+                "experience_details": self.resume.experience_details,
+                "education_details": self.resume.education_details,
+            }
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
+        output = chain.invoke(input_data)
+        return output
+
     def generate_education_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the education section of the resume.
@@ -226,17 +250,12 @@ class LLMResumer:
         return output
 
     def _collect_skills(self) -> set[str]:
-        """Gather skills from experience and education details."""
+        """Gather skills from experience details (skills_acquired per job entry)."""
         skills: set[str] = set()
         if self.resume.experience_details:
             for exp in self.resume.experience_details:
                 if exp.skills_acquired:
                     skills.update(exp.skills_acquired)
-        if self.resume.education_details:
-            for edu in self.resume.education_details:
-                if edu.exam:
-                    for exam in edu.exam:
-                        skills.update(exam.keys())
         return skills
 
     def generate_additional_skills_section(self, data: dict[str, Any] | None = None) -> str:
@@ -299,6 +318,11 @@ class LLMResumer:
                 return self.generate_header()
             return ""
 
+        def summary_fn():
+            if self.resume.personal_information or self.resume.experience_details:
+                return self.generate_summary_section()
+            return ""
+
         def education_fn():
             if self.resume.education_details:
                 return self.generate_education_section()
@@ -337,6 +361,7 @@ class LLMResumer:
         # Create a dictionary to map the function names to their respective callables
         functions = {
             "header": header_fn,
+            "summary": summary_fn,
             "education": education_fn,
             "work_experience": work_experience_fn,
             "projects": projects_fn,
@@ -360,6 +385,7 @@ class LLMResumer:
         full_resume = "<body>\n"
         full_resume += f"  {results.get('header', '')}\n"
         full_resume += "  <main>\n"
+        full_resume += f"    {results.get('summary', '')}\n"
         full_resume += f"    {results.get('work_experience', '')}\n"
         full_resume += f"    {results.get('education', '')}\n"
         full_resume += f"    {results.get('projects', '')}\n"

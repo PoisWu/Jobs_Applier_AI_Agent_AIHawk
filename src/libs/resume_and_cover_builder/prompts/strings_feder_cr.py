@@ -68,6 +68,7 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
     )
 
     sections = [
+        ("Summary", _strip(ns.prompt_summary)),
         ("Header", _strip(ns.prompt_header)),
         ("Work Experience", _strip(ns.prompt_working_experience)),
         ("Education", _strip(ns.prompt_education)),
@@ -95,9 +96,11 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
     return (
         "Act as an HR expert and resume writer specialising in ATS-friendly resumes. "
         "Your task is to generate a COMPLETE HTML resume in a SINGLE output.\n"
-        "Generate ALL sections in this order: Header, Work Experience, Education, Projects, "
-        "Achievements, Certifications, Skills. "
+        "Generate ALL sections in this exact order: Summary, Header, Work Experience, Education, Projects, "
+        "Achievements, Certifications, Skills. Sections MUST appear in this exact order. "
         "Skip any section entirely if its corresponding data is None or an empty list.\n"
+        "Aim for a single-page output. Keep each bullet point to one line. "
+        "Prioritize impact and specificity; omit low-value bullets.\n"
         f"{job_desc_note}\n"
         "Below are the formatting rules and templates for each section:\n\n"
         f"{combined_sections}\n\n"
@@ -110,6 +113,9 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
         "- Do NOT include `<body>` tags.\n"
         "- Do NOT include ```html ``` code fences.\n"
         "- No explanations or additional text outside the HTML.\n"
+        "- Before emitting HTML, verify: (1) no placeholder text of the form `[...]` appears in the output, "
+        "(2) all dates match the input data exactly, (3) sections appear in the order: Summary, Header, "
+        "Work Experience, Education, Projects, Achievements, Certifications, Skills.\n"
     )
 
 
@@ -143,7 +149,7 @@ Exclude any information that is not provided (None).
 </header>
 ```
 Important formatting rules:
-- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "Cheng-Yen Wu").
+- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "[First Last]").
 - Use the diamond symbol ◇ (U+25C7, LaTeX $\\diamond$) as separator between contact items on the same line.
 - If LinkedIn or GitHub or any field is not provided (None), omit that item from the contact line.
 - If GitHub is provided, add it to the second contact line after LinkedIn, separated by a diamond.
@@ -197,6 +203,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 4. **Bullet Points**: Describe key responsibilities and achievements with measurable results. Use concise, action-oriented language.
 
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
+If a role has zero technical achievements (e.g. military service), render the entire entry as a single `<p class="entry-description">` line with no `<ul>` element.
 
 - **My information:**
   {experience_details}
@@ -249,6 +256,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details. Focus on what you built and how, not just what the project is.
 
 Do not use Font Awesome icons. Include all projects from the data.
+If a `tech_stack` list is present on the project data, use it verbatim for the `| Tech1, Tech2` field instead of inferring from the description. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
 
 - **My information:**
   {projects}
@@ -392,6 +400,30 @@ The results should be provided in html format, Provide only the html code for th
     ),
 )
 
+resume.prompt_summary = """\
+
+Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to write a concise professional summary of exactly 3 sentences:
+1. Years of experience and core technical domains (e.g. AI/ML Engineering, Cloud Infrastructure, Cybersecurity).
+2. The single most impactful quantified achievement from the most recent role.
+3. Educational background (institutions and fields of study).
+
+Do NOT use first-person pronouns. Do NOT add a section heading — output only the `<section>` element.
+
+- **My information:**
+  Personal: {personal_information}
+  Experience: {experience_details}
+  Education: {education_details}
+
+- **Template to Use**
+```
+<section id="summary">
+    <h2>Summary</h2>
+    <p>[3-sentence professional summary]</p>
+</section>
+```
+The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+"""
+
 resume.prompt_full_resume = _build_full_resume_prompt(resume)
 
 # ---------------------------------------------------------------------------
@@ -425,7 +457,7 @@ If any of the contact information fields are not provided (i.e., `None`), omit t
 </header>
 ```
 Important formatting rules:
-- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "Cheng-Yen Wu").
+- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "[First Last]").
 - Use the diamond symbol ◇ (U+25C7, LaTeX $\\diamond$) as separator between contact items on the same line.
 - If LinkedIn or GitHub or any field is not provided (None), omit that item from the contact line.
 - If GitHub is provided, add it to the second contact line after LinkedIn, separated by a diamond.
@@ -483,6 +515,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 4. **Bullet Points**: Describe key responsibilities and achievements with measurable results. Use concise, action-oriented language.
 
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
+If a role has zero technical achievements (e.g. military service), render the entire entry as a single `<p class="entry-description">` line with no `<ul>` element.
 If any work experience details are not provided (i.e., `None`), omit those sections.
 
 - **My information:**
@@ -539,6 +572,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details relevant to the job description.
 
 Do not use Font Awesome icons. Include all projects from the data.
+If a `tech_stack` list is present on the project data, use it verbatim for the `| Tech1, Tech2` field instead of inferring from the description. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
 If any project details are not provided (i.e., `None`), omit those sections.
 
 - **My information:**
@@ -701,6 +735,33 @@ The results should be provided in html format, Provide only the html code for th
 """
     ),
 )
+
+resume_job_description.prompt_summary = """\
+
+Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to write a concise professional summary of exactly 3 sentences tailored to the job description:
+1. Years of experience and core technical domains most relevant to the job description.
+2. The single most impactful quantified achievement from the most recent role that aligns with the job.
+3. Educational background (institutions and fields of study).
+
+Do NOT use first-person pronouns. Do NOT add a section heading — output only the `<section>` element.
+
+- **My information:**
+  Personal: {personal_information}
+  Experience: {experience_details}
+  Education: {education_details}
+
+- **Job Description:**
+  {job_description}
+
+- **Template to Use**
+```
+<section id="summary">
+    <h2>Summary</h2>
+    <p>[3-sentence professional summary tailored to the job]</p>
+</section>
+```
+The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+"""
 
 resume_job_description.prompt_full_resume = _build_full_resume_prompt(resume_job_description, with_job_description=True)
 
