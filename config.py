@@ -30,12 +30,12 @@ class Settings(BaseSettings):
     JOB_MIN_APPLICATIONS: int = 1
 
     LLM_MODEL_TYPE: str = "openai"
-    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_MODEL: str = "gpt-5-mini"
     # Only required for OLLAMA models
     LLM_API_URL: str = ""
 
     # LLM tuning
-    LLM_TEMPERATURE: float = 0.4
+    LLM_TEMPERATURE: float = 1
 
     # Token pricing (for cost tracking)
     PROMPT_PRICE_PER_TOKEN: float = 0.00000015

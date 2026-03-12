@@ -69,7 +69,6 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
 
     sections = [
         ("Summary", _strip(ns.prompt_summary)),
-        ("Header", _strip(ns.prompt_header)),
         ("Work Experience", _strip(ns.prompt_working_experience)),
         ("Education", _strip(ns.prompt_education)),
         ("Personal Projects", _strip(ns.prompt_projects)),
@@ -96,8 +95,9 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
     return (
         "Act as an HR expert and resume writer specialising in ATS-friendly resumes. "
         "Your task is to generate a COMPLETE HTML resume in a SINGLE output.\n"
-        "Generate ALL sections in this exact order: Summary, Header, Work Experience, Education, Projects, "
-        "Achievements, Certifications, Skills. Sections MUST appear in this exact order. "
+        "The `<header>` element (name and contact) is rendered FIRST and stands OUTSIDE `<main>`. "
+        "Inside `<main>`, render sections in this exact order: Summary, Work Experience, Education, "
+        "Projects, Achievements, Certifications, Skills. Sections MUST appear in this exact order. "
         "Skip any section entirely if its corresponding data is None or an empty list.\n"
         "Aim for a single-page output. Keep each bullet point to one line. "
         "Prioritize impact and specificity; omit low-value bullets.\n"
@@ -109,13 +109,28 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
         f"{data_vars}\n"
         "---\n\n"
         "**Final Output Rules:**\n"
-        "- Output the full HTML as: `<header>...</header>\\n<main>\\n  [sections in order]\\n</main>`\n"
+        "Your output structure MUST follow this exact skeleton:\n"
+        "<header>\\n"
+        "  [header content — name and contact]\\n"
+        "</header>\\n"
+        "<main>\\n"
+        "  [Summary section]\\n"
+        "  [Work Experience section]\\n"
+        "  [Education section]\\n"
+        "  [Personal Projects section]\\n"
+        "  [Achievements section — omit entirely if achievements data is empty]\\n"
+        "  [Certifications section]\\n"
+        "  [Skills section]\\n"
+        "</main>\\n"
+        "- `<header>` MUST be the very first element. `<main>` MUST follow directly after `<header>`.\n"
         "- Do NOT include `<body>` tags.\n"
         "- Do NOT include ```html ``` code fences.\n"
         "- No explanations or additional text outside the HTML.\n"
-        "- Before emitting HTML, verify: (1) no placeholder text of the form `[...]` appears in the output, "
-        "(2) all dates match the input data exactly, (3) sections appear in the order: Summary, Header, "
-        "Work Experience, Education, Projects, Achievements, Certifications, Skills.\n"
+        "- Before emitting HTML, verify: (1) no placeholder text of the form `[...]` appears, "
+        "(2) all dates match the input data exactly, (3) `<header>` is the first element, "
+        "(4) `<main>` follows directly after `<header>`, "
+        "(5) sections inside `<main>` appear in order: Summary, Work Experience, Education, "
+        "Projects, Achievements, Certifications, Skills.\n"
     )
 
 
@@ -203,7 +218,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 4. **Bullet Points**: Describe key responsibilities and achievements with measurable results. Use concise, action-oriented language.
 
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
-If a role has zero technical achievements (e.g. military service), render the entire entry as a single `<p class="entry-description">` line with no `<ul>` element.
+If a role has zero technical achievements (e.g. military service), render the full `<div class="entry">` with `entry-header` (job title + dates) and `entry-details` (company + location), but replace the `<ul>` with a single `<p class="entry-description">` containing the description. Do NOT omit the wrapper or the header rows.
 
 - **My information:**
   {experience_details}
@@ -256,7 +271,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details. Focus on what you built and how, not just what the project is.
 
 Do not use Font Awesome icons. Include all projects from the data.
-If a `tech_stack` list is present on the project data, use it verbatim for the `| Tech1, Tech2` field instead of inferring from the description. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
+If a `tech_stack` list is present on the project data, copy ALL items from it verbatim and comma-separated for the `| Tech1, Tech2` field. Do NOT select a subset — every item in the list must appear. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
 
 - **My information:**
   {projects}
@@ -288,6 +303,8 @@ The results should be provided in html format, Provide only the html code for th
     ),
     prompt_achievements=(
         """\
+
+If the achievements list is empty or None, output nothing at all — no `<section>` tag, no heading, no empty list.
 
 Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to list significant achievements. For each achievement, ensure you include:
 
@@ -403,7 +420,7 @@ The results should be provided in html format, Provide only the html code for th
 resume.prompt_summary = """\
 
 Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to write a concise professional summary of exactly 3 sentences:
-1. Years of experience and core technical domains (e.g. AI/ML Engineering, Cloud Infrastructure, Cybersecurity).
+1. Sentence 1 MUST begin with a specific number of years (e.g. "3+ years of experience in…"). Do NOT use vague openers like "with experience in". Cover core technical domains (e.g. AI/ML Engineering, Cloud Infrastructure, Cybersecurity).
 2. The single most impactful quantified achievement from the most recent role.
 3. Educational background (institutions and fields of study).
 
@@ -515,7 +532,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 4. **Bullet Points**: Describe key responsibilities and achievements with measurable results. Use concise, action-oriented language.
 
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
-If a role has zero technical achievements (e.g. military service), render the entire entry as a single `<p class="entry-description">` line with no `<ul>` element.
+If a role has zero technical achievements (e.g. military service), render the full `<div class="entry">` with `entry-header` (job title + dates) and `entry-details` (company + location), but replace the `<ul>` with a single `<p class="entry-description">` containing the description. Do NOT omit the wrapper or the header rows.
 If any work experience details are not provided (i.e., `None`), omit those sections.
 
 - **My information:**
@@ -572,7 +589,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details relevant to the job description.
 
 Do not use Font Awesome icons. Include all projects from the data.
-If a `tech_stack` list is present on the project data, use it verbatim for the `| Tech1, Tech2` field instead of inferring from the description. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
+If a `tech_stack` list is present on the project data, copy ALL items from it verbatim and comma-separated for the `| Tech1, Tech2` field. Do NOT select a subset — every item in the list must appear. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
 If any project details are not provided (i.e., `None`), omit those sections.
 
 - **My information:**
@@ -608,6 +625,8 @@ The results should be provided in html format, Provide only the html code for th
     ),
     prompt_achievements=(
         """\
+
+If the achievements list is empty or None, output nothing at all — no `<section>` tag, no heading, no empty list.
 
 Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to list significant achievements based on the provided job description. For each achievement, ensure you include:
 
@@ -739,7 +758,7 @@ The results should be provided in html format, Provide only the html code for th
 resume_job_description.prompt_summary = """\
 
 Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to write a concise professional summary of exactly 3 sentences tailored to the job description:
-1. Years of experience and core technical domains most relevant to the job description.
+1. Sentence 1 MUST begin with a specific number of years (e.g. "3+ years of experience in…"). Do NOT use vague openers like "with experience in". Cover core technical domains most relevant to the job description.
 2. The single most impactful quantified achievement from the most recent role that aligns with the job.
 3. Educational background (institutions and fields of study).
 
