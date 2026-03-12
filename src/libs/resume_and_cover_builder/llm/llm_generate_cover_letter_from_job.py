@@ -1,53 +1,30 @@
-"""
-This creates the cover letter (in html, utils will then convert in PDF) matching with job description and plain-text resume
-"""
+"""Generate a cover letter matching a job description using an LLM."""
 
-# app/libs/resume_and_cover_builder/llm_generate_cover_letter_from_job.py
-import os
-import textwrap
-from pathlib import Path
+import types
 
-from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from loguru import logger
 
-from ..utils import LoggerChatModel
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Configure log file
-log_folder = "log/cover_letter/gpt_cover_letter_job_descr"
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-log_path = Path(log_folder).resolve()
-logger.add(
-    log_path / "gpt_cover_letter_job_descr.log", rotation="1 day", compression="zip", retention="7 days", level="DEBUG"
-)
+from config import settings
+from src.libs.resume_and_cover_builder.llm.llm_chat_model import LoggerChatModel
+from src.libs.resume_and_cover_builder.utils import preprocess_template_string
+from src.schemas.resume import Resume
 
 
 class LLMCoverLetterJobDescription:
-    def __init__(self, openai_api_key, strings):
+    def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
         self.llm_cheap = LoggerChatModel(
-            ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4)
+            ChatOpenAI(
+                model_name=settings.LLM_MODEL,
+                openai_api_key=openai_api_key,
+                temperature=settings.LLM_TEMPERATURE,
+            )
         )
-        self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
         self.strings = strings
 
-    @staticmethod
-    def _preprocess_template_string(template: str) -> str:
-        """
-        Preprocess the template string by removing leading whitespace and indentation.
-        Args:
-            template (str): The template string to preprocess.
-        Returns:
-            str: The preprocessed template string.
-        """
-        return textwrap.dedent(template)
-
-    def set_resume(self, resume) -> None:
+    def set_resume(self, resume: Resume) -> None:
         """
         Set the resume text to be used for generating the cover letter.
         Args:
@@ -55,7 +32,7 @@ class LLMCoverLetterJobDescription:
         """
         self.resume = resume
 
-    def set_job_description_from_text(self, job_description_text) -> None:
+    def set_job_description_from_text(self, job_description_text: str) -> None:
         """
         Set the job description text to be used for generating the cover letter.
         Args:
@@ -75,7 +52,7 @@ class LLMCoverLetterJobDescription:
             str: The generated cover letter
         """
         logger.debug("Starting cover letter generation...")
-        prompt_template = self._preprocess_template_string(self.strings.cover_letter_template)
+        prompt_template = preprocess_template_string(self.strings.cover_letter_template)
         logger.debug(f"Cover letter template after preprocessing: {prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(prompt_template)

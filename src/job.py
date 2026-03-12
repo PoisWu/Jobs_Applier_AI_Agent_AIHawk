@@ -1,10 +1,9 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 from src.logging import logger
 
 
-@dataclass
-class Job:
+class Job(BaseModel):
     role: str = ""
     company: str = ""
     location: str = ""
@@ -16,7 +15,7 @@ class Job:
     resume_path: str = ""
     cover_letter_path: str = ""
 
-    def formatted_job_information(self):
+    def formatted_job_information(self) -> str:
         """
         Formats the job information as a markdown string.
         """

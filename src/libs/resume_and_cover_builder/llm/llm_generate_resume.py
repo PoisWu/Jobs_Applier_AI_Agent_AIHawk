@@ -1,57 +1,33 @@
-"""
-Create a class that generates a resume based on a resume and a resume template.
-"""
+"""Generate a resume from structured data using an LLM."""
 
-# app/libs/resume_and_cover_builder/gpt_resume.py
-import os
-import textwrap
+import types
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
+from typing import Any
 
-from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from loguru import logger
 
-from src.libs.resume_and_cover_builder.utils import LoggerChatModel
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Configure log file
-log_folder = "log/resume/gpt_resume"
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-log_path = Path(log_folder).resolve()
-logger.add(
-    log_path / "gpt_resume.log",
-    rotation="1 day",
-    compression="zip",
-    retention="7 days",
-    level="DEBUG",
-)
+from config import settings
+from src.libs.resume_and_cover_builder.llm.llm_chat_model import LoggerChatModel
+from src.libs.resume_and_cover_builder.utils import preprocess_template_string
+from src.schemas.resume import Resume
 
 
 class LLMResumer:
-    def __init__(self, openai_api_key, strings):
+    def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
         self.llm_cheap = LoggerChatModel(
-            ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4)
+            ChatOpenAI(
+                model_name=settings.LLM_MODEL,
+                openai_api_key=openai_api_key,
+                temperature=settings.LLM_TEMPERATURE,
+            )
         )
         self.strings = strings
+        self.job_description: str | None = None
 
-    @staticmethod
-    def _preprocess_template_string(template: str) -> str:
-        """
-        Preprocess the template string by removing leading whitespace and indentation.
-        Args:
-            template (str): The template string to preprocess.
-        Returns:
-            str: The preprocessed template string.
-        """
-        return textwrap.dedent(template)
-
-    def set_resume(self, resume) -> None:
+    def set_resume(self, resume: Resume) -> None:
         """
         Set the resume object to be used for generating the resume.
         Args:
@@ -59,7 +35,17 @@ class LLMResumer:
         """
         self.resume = resume
 
-    def generate_header(self, data=None) -> str:
+    def set_job_description_from_text(self, job_description_text: str) -> None:
+        """
+        Summarize and store a job description for use in resume generation.
+        Args:
+            job_description_text (str): The plain text job description to summarize.
+        """
+        prompt = ChatPromptTemplate.from_template(self.strings.summarize_prompt_template)
+        chain = prompt | self.llm_cheap | StrOutputParser()
+        self.job_description = chain.invoke({"text": job_description_text})
+
+    def generate_header(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the header section of the resume.
         Args:
@@ -67,14 +53,19 @@ class LLMResumer:
         Returns:
             str: The generated header section.
         """
-        header_prompt_template = self._preprocess_template_string(self.strings.prompt_header)
+        header_prompt_template = preprocess_template_string(self.strings.prompt_header)
         prompt = ChatPromptTemplate.from_template(header_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
-        input_data = {"personal_information": self.resume.personal_information} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"personal_information": self.resume.personal_information}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         return output
 
-    def generate_education_section(self, data=None) -> str:
+    def generate_education_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the education section of the resume.
         Args:
@@ -84,7 +75,7 @@ class LLMResumer:
         """
         logger.debug("Starting education section generation")
 
-        education_prompt_template = self._preprocess_template_string(self.strings.prompt_education)
+        education_prompt_template = preprocess_template_string(self.strings.prompt_education)
         logger.debug(f"Education template: {education_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(education_prompt_template)
@@ -93,14 +84,19 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"education_details": self.resume.education_details} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"education_details": self.resume.education_details}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
         logger.debug("Education section generation completed")
         return output
 
-    def generate_work_experience_section(self, data=None) -> str:
+    def generate_work_experience_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the work experience section of the resume.
         Args:
@@ -110,7 +106,7 @@ class LLMResumer:
         """
         logger.debug("Starting work experience section generation")
 
-        work_experience_prompt_template = self._preprocess_template_string(self.strings.prompt_working_experience)
+        work_experience_prompt_template = preprocess_template_string(self.strings.prompt_working_experience)
         logger.debug(f"Work experience template: {work_experience_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(work_experience_prompt_template)
@@ -119,14 +115,19 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"experience_details": self.resume.experience_details} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"experience_details": self.resume.experience_details}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
         logger.debug("Work experience section generation completed")
         return output
 
-    def generate_projects_section(self, data=None) -> str:
+    def generate_projects_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the side projects section of the resume.
         Args:
@@ -136,7 +137,7 @@ class LLMResumer:
         """
         logger.debug("Starting side projects section generation")
 
-        projects_prompt_template = self._preprocess_template_string(self.strings.prompt_projects)
+        projects_prompt_template = preprocess_template_string(self.strings.prompt_projects)
         logger.debug(f"Side projects template: {projects_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(projects_prompt_template)
@@ -145,14 +146,19 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"projects": self.resume.projects} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"projects": self.resume.projects}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
         logger.debug(f"Chain invocation result: {output}")
 
         logger.debug("Side projects section generation completed")
         return output
 
-    def generate_achievements_section(self, data=None) -> str:
+    def generate_achievements_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the achievements section of the resume.
         Args:
@@ -162,7 +168,7 @@ class LLMResumer:
         """
         logger.debug("Starting achievements section generation")
 
-        achievements_prompt_template = self._preprocess_template_string(self.strings.prompt_achievements)
+        achievements_prompt_template = preprocess_template_string(self.strings.prompt_achievements)
         logger.debug(f"Achievements template: {achievements_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(achievements_prompt_template)
@@ -171,14 +177,15 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = (
-            {
+        if data is None:
+            input_data: dict[str, Any] = {
                 "achievements": self.resume.achievements,
                 "certifications": self.resume.certifications,
             }
-            if data is None
-            else data
-        )
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         logger.debug(f"Input data for the chain: {input_data}")
 
         output = chain.invoke(input_data)
@@ -187,7 +194,7 @@ class LLMResumer:
         logger.debug("Achievements section generation completed")
         return output
 
-    def generate_certifications_section(self, data=None) -> str:
+    def generate_certifications_section(self, data: dict[str, Any] | None = None) -> str:
         """
         Generate the certifications section of the resume.
         Returns:
@@ -195,7 +202,7 @@ class LLMResumer:
         """
         logger.debug("Starting Certifications section generation")
 
-        certifications_prompt_template = self._preprocess_template_string(self.strings.prompt_certifications)
+        certifications_prompt_template = preprocess_template_string(self.strings.prompt_certifications)
         logger.debug(f"Certifications template: {certifications_prompt_template}")
 
         prompt = ChatPromptTemplate.from_template(certifications_prompt_template)
@@ -204,7 +211,12 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         logger.debug(f"Chain created: {chain}")
 
-        input_data = {"certifications": self.resume.certifications} if data is None else data
+        if data is None:
+            input_data: dict[str, Any] = {"certifications": self.resume.certifications}
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         logger.debug(f"Input data for the chain: {input_data}")
 
         output = chain.invoke(input_data)
@@ -213,39 +225,67 @@ class LLMResumer:
         logger.debug("Certifications section generation completed")
         return output
 
-    def generate_additional_skills_section(self, data=None) -> str:
-        """
-        Generate the additional skills section of the resume.
-        Returns:
-            str: The generated additional skills section.
-        """
-        additional_skills_prompt_template = self._preprocess_template_string(self.strings.prompt_additional_skills)
-
-        skills = set()
+    def _collect_skills(self) -> set[str]:
+        """Gather skills from experience and education details."""
+        skills: set[str] = set()
         if self.resume.experience_details:
             for exp in self.resume.experience_details:
                 if exp.skills_acquired:
                     skills.update(exp.skills_acquired)
-
         if self.resume.education_details:
             for edu in self.resume.education_details:
                 if edu.exam:
                     for exam in edu.exam:
                         skills.update(exam.keys())
+        return skills
+
+    def generate_additional_skills_section(self, data: dict[str, Any] | None = None) -> str:
+        """Generate the additional skills section of the resume."""
+        additional_skills_prompt_template = preprocess_template_string(self.strings.prompt_additional_skills)
+
         prompt = ChatPromptTemplate.from_template(additional_skills_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
-        input_data = (
-            {
+        if data is None:
+            input_data: dict[str, Any] = {
                 "languages": self.resume.languages,
                 "interests": self.resume.interests,
-                "skills": skills,
+                "skills": self._collect_skills(),
             }
-            if data is None
-            else data
-        )
+            if self.job_description is not None:
+                input_data["job_description"] = self.job_description
+        else:
+            input_data = data
         output = chain.invoke(input_data)
 
         return output
+
+    def generate_html_resume_single_query(self) -> str:
+        """
+        Generate the full HTML resume with a single LLM query.
+
+        Returns:
+            str: The generated HTML resume body.
+        """
+        logger.debug("Starting single-query full resume generation")
+        full_resume_prompt_template = preprocess_template_string(self.strings.prompt_full_resume)
+        prompt = ChatPromptTemplate.from_template(full_resume_prompt_template)
+        chain = prompt | self.llm_cheap | StrOutputParser()
+        input_data: dict[str, Any] = {
+            "personal_information": self.resume.personal_information,
+            "education_details": self.resume.education_details,
+            "experience_details": self.resume.experience_details,
+            "projects": self.resume.projects,
+            "achievements": self.resume.achievements,
+            "certifications": self.resume.certifications,
+            "languages": self.resume.languages,
+            "interests": self.resume.interests,
+            "skills": self._collect_skills(),
+        }
+        if self.job_description is not None:
+            input_data["job_description"] = self.job_description
+        output = chain.invoke(input_data)
+        logger.debug("Single-query full resume generation completed")
+        return f"<body>\n  {output}\n</body>"
 
     def generate_html_resume(self) -> str:
         """
