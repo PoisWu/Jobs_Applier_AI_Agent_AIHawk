@@ -42,7 +42,10 @@ class ResumeGenerator:
         except Exception as e:
             raise RuntimeError(f"Error reading CSS file: {e}")
 
-        body_html = gpt_answerer.generate_html_resume()
+        if builder_config.use_single_query:
+            body_html = gpt_answerer.generate_html_resume_single_query()
+        else:
+            body_html = gpt_answerer.generate_html_resume()
         return template.substitute(body=body_html, style_css=style_css)
 
     def create_resume(self, style_path: str | Path) -> str:

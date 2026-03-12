@@ -42,6 +42,78 @@ This comprehensive overview will serve as a guideline for the recruitment proces
 # Job Description Summary"""
 
 # ---------------------------------------------------------------------------
+# Helper: compose single-query full-resume prompt from individual section prompts
+# ---------------------------------------------------------------------------
+
+_SECTION_OUTPUT_RULE = (
+    "The results should be provided in html format, Provide only the html code for the resume, "
+    "without any explanations or additional text and also without ```html ```"
+)
+
+
+def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool = False) -> str:
+    """Compose a single-query full-resume prompt by reusing the namespace's section prompts.
+
+    Strips the per-section output directive from each section prompt to avoid repetition,
+    then wraps everything in a unified intro and a single output instruction.
+    """
+
+    def _strip(text: str) -> str:
+        return text.replace(_SECTION_OUTPUT_RULE, "").rstrip("\n")
+
+    job_desc_note = (
+        "\nIMPORTANT: Tailor every section to align with the provided job description.\n"
+        if with_job_description
+        else ""
+    )
+
+    sections = [
+        ("Header", _strip(ns.prompt_header)),
+        ("Work Experience", _strip(ns.prompt_working_experience)),
+        ("Education", _strip(ns.prompt_education)),
+        ("Personal Projects", _strip(ns.prompt_projects)),
+        ("Achievements", _strip(ns.prompt_achievements)),
+        ("Certifications", _strip(ns.prompt_certifications)),
+        ("Skills", _strip(ns.prompt_additional_skills)),
+    ]
+    combined_sections = "\n\n---\n\n".join(f"## {name} Section\n{content}" for name, content in sections)
+
+    data_vars = (
+        "- **Personal Information:** {personal_information}\n"
+        "- **Work Experience:** {experience_details}\n"
+        "- **Education:** {education_details}\n"
+        "- **Projects:** {projects}\n"
+        "- **Achievements:** {achievements}\n"
+        "- **Certifications:** {certifications}\n"
+        "- **Languages:** {languages}\n"
+        "- **Interests:** {interests}\n"
+        "- **Skills:** {skills}\n"
+    )
+    if with_job_description:
+        data_vars += "- **Job Description:** {job_description}\n"
+
+    return (
+        "Act as an HR expert and resume writer specialising in ATS-friendly resumes. "
+        "Your task is to generate a COMPLETE HTML resume in a SINGLE output.\n"
+        "Generate ALL sections in this order: Header, Work Experience, Education, Projects, "
+        "Achievements, Certifications, Skills. "
+        "Skip any section entirely if its corresponding data is None or an empty list.\n"
+        f"{job_desc_note}\n"
+        "Below are the formatting rules and templates for each section:\n\n"
+        f"{combined_sections}\n\n"
+        "---\n\n"
+        "## My Resume Data\n"
+        f"{data_vars}\n"
+        "---\n\n"
+        "**Final Output Rules:**\n"
+        "- Output the full HTML as: `<header>...</header>\\n<main>\\n  [sections in order]\\n</main>`\n"
+        "- Do NOT include `<body>` tags.\n"
+        "- Do NOT include ```html ``` code fences.\n"
+        "- No explanations or additional text outside the HTML.\n"
+    )
+
+
+# ---------------------------------------------------------------------------
 # resume - base resume generation (no job description)
 # ---------------------------------------------------------------------------
 
@@ -319,6 +391,8 @@ The results should be provided in html format, Provide only the html code for th
 """
     ),
 )
+
+resume.prompt_full_resume = _build_full_resume_prompt(resume)
 
 # ---------------------------------------------------------------------------
 # resume_job_description - job-tailored resume
@@ -627,6 +701,8 @@ The results should be provided in html format, Provide only the html code for th
 """
     ),
 )
+
+resume_job_description.prompt_full_resume = _build_full_resume_prompt(resume_job_description, with_job_description=True)
 
 # ---------------------------------------------------------------------------
 # cover_letter - job-tailored cover letter

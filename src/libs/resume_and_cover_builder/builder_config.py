@@ -33,6 +33,7 @@ class BuilderConfig(BaseModel):
     LOG_OUTPUT_FILE_PATH: Path | None = None
     API_KEY: str | None = None
     html_template: str = _DEFAULT_HTML_TEMPLATE
+    use_single_query: bool = True
 
 
 builder_config = BuilderConfig()

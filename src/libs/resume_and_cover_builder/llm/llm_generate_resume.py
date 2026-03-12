@@ -259,6 +259,34 @@ class LLMResumer:
 
         return output
 
+    def generate_html_resume_single_query(self) -> str:
+        """
+        Generate the full HTML resume with a single LLM query.
+
+        Returns:
+            str: The generated HTML resume body.
+        """
+        logger.debug("Starting single-query full resume generation")
+        full_resume_prompt_template = preprocess_template_string(self.strings.prompt_full_resume)
+        prompt = ChatPromptTemplate.from_template(full_resume_prompt_template)
+        chain = prompt | self.llm_cheap | StrOutputParser()
+        input_data: dict[str, Any] = {
+            "personal_information": self.resume.personal_information,
+            "education_details": self.resume.education_details,
+            "experience_details": self.resume.experience_details,
+            "projects": self.resume.projects,
+            "achievements": self.resume.achievements,
+            "certifications": self.resume.certifications,
+            "languages": self.resume.languages,
+            "interests": self.resume.interests,
+            "skills": self._collect_skills(),
+        }
+        if self.job_description is not None:
+            input_data["job_description"] = self.job_description
+        output = chain.invoke(input_data)
+        logger.debug("Single-query full resume generation completed")
+        return f"<body>\n  {output}\n</body>"
+
     def generate_html_resume(self) -> str:
         """
         Generate the full HTML resume based on the resume object.
