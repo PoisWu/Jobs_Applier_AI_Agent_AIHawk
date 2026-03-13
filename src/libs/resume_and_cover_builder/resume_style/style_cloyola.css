@@ -95,6 +95,25 @@ h2 {
   margin-bottom: 2px;
 }
 
+/* Personal Project tech-and-link row */
+.entry-tech-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 3px 0 3px 0;
+}
+
+.entry-tech {
+  font-size: 9pt;
+  color: #555;
+}
+
+.entry-link {
+  font-size: 9pt;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
 .two-column {
   display: flex;
   justify-content: space-between;

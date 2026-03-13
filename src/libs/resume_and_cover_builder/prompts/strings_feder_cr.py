@@ -226,41 +226,72 @@ The results should be provided in html format, Provide only the html code for th
     prompt_projects=(
         """\
 
-Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to highlight personal projects. For each project:
+Act as an HR expert and resume writer specializing in ATS-friendly resumes.
+Your task is to generate an HTML snippet for the Personal Projects section of a resume, using the provided project data.
 
-1. **Header Format**: "**Project Name** | Tech1, Tech2, Tech3" on the left, dates on the right.
-2. **Project Name**: Should be a link to the GitHub repo or project page.
-3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details. Focus on what you built and how, not just what the project is.
+## YOUR INPUTS
 
-Do not use Font Awesome icons. Include all projects from the data.
-If a `tech_stack` list is present on the project data, copy ALL items from it verbatim and comma-separated for the `| Tech1, Tech2` field. Do NOT select a subset — every item in the list must appear. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
+**Project Data:**
+{projects}
 
-- **My information:**
-  {projects}
+## OUTPUT RULES
 
-- **Template to Use**
-```
-<section id="side-projects">
-    <h2>Personal Projects</h2>
-    <div class="entry">
-      <div class="entry-header">
-          <span class="entry-name"><strong><a href="[Github Repo or Link]">[Project Name]</a></strong> | [Tech1, Tech2, Tech3]</span>
-          <span class="entry-year">[Month Year] – [Month Year]</span>
-      </div>
-      <ul class="compact-list">
-          <li>[Describe what the project does and key technical decisions]</li>
-          <li>[Describe specific implementation details or outcomes]</li>
-      </ul>
-    </div>
-</section>
-```
-Important formatting rules:
-- The entry-name contains the bolded project name as a link, followed by " | " and a comma-separated list of key technologies.
-- Dates are right-aligned.
-- Bullet points should describe technical contributions, not just what the project is.
+### Structure
+- Include ALL projects from the data. Do not skip any.
+- For each project, produce one `<div class="entry">` block using the template below.
+
+### Entry Layout (in this exact order)
+1. **Header line**: Bold plain project name (no hyperlink) on the left, date range on the right.
+2. **Tech-and-link row**: Tech stack on the left, repo URL on the right — both in one `<div class="entry-tech-row">`.
+3. **Bullet points**: Exactly 2–3 bullets below the tech-and-link row.
+
+### Header Format
+- Left side: Bold plain text project name — do NOT wrap it in an `<a>` tag.
+- Right side: Date range read directly from `date_start` and `date_end` fields. Do not parse dates from any text.
+
+### Tech-and-Link Row
+- Left: `<span class="entry-tech">` containing ALL `tech_stack` items verbatim, comma-separated. Do NOT omit any item.
+- Right: `<a class="entry-link" href="[full link]">` whose visible text is the URL with `https://` stripped (e.g. `github.com/user/repo`). Omit the `<a>` (but keep the `<span>`) if `link` is null.
+- Both are siblings inside `<div class="entry-tech-row">`.
+
+### Bullet Points
+- Each bullet must follow this pattern:
+  [Strong action verb] + [what you built or decided] + [technical benefit or outcome].
+- Optimize for general backend and software engineering roles: emphasize scalability, maintainability, testing practices, and system design decisions.
+- Draw from the `highlights` list as your source material — rephrase and elevate them, do not copy verbatim.
+- Use the `summary` field only for context, not as a bullet point.
+
+### Formatting
 - Do not use Font Awesome icon classes.
-- Include all projects from the data.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+- Do not add inline styles.
+- Do not include explanations, markdown, or code fences in your output.
+- Output only the raw HTML snippet — nothing before or after it.
+- If any project field is missing or null, omit that element silently.
+
+## TEMPLATE
+
+<section id="side-projects">
+  <h2>Personal Projects</h2>
+
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-name"><strong>[name]</strong></span>
+      <span class="entry-year">[date_start] – [date_end]</span>
+    </div>
+    <div class="entry-tech-row">
+      <span class="entry-tech">[tech_stack, comma-separated]</span>
+      <a class="entry-link" href="[link]">[link without https://]</a>
+    </div>
+    <ul class="compact-list">
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit, if needed]</li>
+    </ul>
+  </div>
+
+  <!-- Repeat <div class="entry"> for each project -->
+
+</section>
 """
     ),
     prompt_achievements=(
@@ -518,45 +549,76 @@ The results should be provided in html format, Provide only the html code for th
     prompt_projects=(
         """\
 
-Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to highlight personal projects, ensuring they align with the provided job description. For each project:
+Act as an HR expert and resume writer specializing in ATS-friendly resumes.
+Your task is to generate an HTML snippet for the Personal Projects section of a resume, using the provided project data and job description.
 
-1. **Header Format**: "**Project Name** | Tech1, Tech2, Tech3" on the left, dates on the right.
-2. **Project Name**: Should be a link to the GitHub repo or project page.
-3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details relevant to the job description.
+## YOUR INPUTS
 
-Do not use Font Awesome icons. Include all projects from the data.
-If a `tech_stack` list is present on the project data, copy ALL items from it verbatim and comma-separated for the `| Tech1, Tech2` field. Do NOT select a subset — every item in the list must appear. Extract dates from the trailing parenthetical in the description string (e.g. `(Dec 2025 - Jan 2026)`) when no separate date field exists.
-If any project details are not provided (i.e., `None`), omit those sections.
+**Project Data:**
+{projects}
 
-- **My information:**
-  {projects}
+**Job Description:**
+{job_description}
 
-- **Job Description:**
-  {job_description}
+## OUTPUT RULES
 
-- **Template to Use**
-```
-<section id="side-projects">
-    <h2>Personal Projects</h2>
-    <div class="entry">
-      <div class="entry-header">
-          <span class="entry-name"><strong><a href="[Github Repo or Link]">[Project Name]</a></strong> | [Tech1, Tech2, Tech3]</span>
-          <span class="entry-year">[Month Year] – [Month Year]</span>
-      </div>
-      <ul class="compact-list">
-          <li>[Describe what the project does and key technical decisions]</li>
-          <li>[Describe specific implementation details or outcomes]</li>
-      </ul>
-    </div>
-</section>
-```
-Important formatting rules:
-- The entry-name contains the bolded project name as a link, followed by " | " and a comma-separated list of key technologies.
-- Dates are right-aligned.
-- Bullet points should describe technical contributions, not just what the project is.
+### Structure
+- Include ALL projects from the data. Do not skip any.
+- For each project, produce one `<div class="entry">` block using the template below.
+
+### Entry Layout (in this exact order)
+1. **Header line**: Bold plain project name (no hyperlink) on the left, date range on the right.
+2. **Tech-and-link row**: Tech stack on the left, repo URL on the right — both in one `<div class="entry-tech-row">`.
+3. **Bullet points**: Exactly 2–3 bullets below the tech-and-link row.
+
+### Header Format
+- Left side: Bold plain text project name — do NOT wrap it in an `<a>` tag.
+- Right side: Date range read directly from `date_start` and `date_end` fields. Do not parse dates from any text.
+
+### Tech-and-Link Row
+- Left: `<span class="entry-tech">` containing ALL `tech_stack` items verbatim, comma-separated. Do NOT omit any item.
+- Right: `<a class="entry-link" href="[full link]">` whose visible text is the URL with `https://` stripped (e.g. `github.com/user/repo`). Omit the `<a>` (but keep the `<span>`) if `link` is null.
+- Both are siblings inside `<div class="entry-tech-row">`.
+
+### Bullet Points
+- Each bullet must follow this pattern:
+  [Strong action verb] + [what you built or decided] + [technical benefit or outcome].
+- Prioritize language and keywords that match the job description (e.g., scalability, reliability, performance, maintainability).
+- Draw from the `highlights` list as your source material — rephrase and elevate them, do not copy verbatim.
+- Use the `summary` field only for context, not as a bullet point.
+- If no job description is provided, optimize for general backend and software engineering roles: emphasize scalability, maintainability, testing practices, and system design decisions.
+
+### Formatting
 - Do not use Font Awesome icon classes.
-- Include all projects from the data.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+- Do not add inline styles.
+- Do not include explanations, markdown, or code fences in your output.
+- Output only the raw HTML snippet — nothing before or after it.
+- If any project field is missing or null, omit that element silently.
+
+## TEMPLATE
+
+<section id="side-projects">
+  <h2>Personal Projects</h2>
+
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-name"><strong>[name]</strong></span>
+      <span class="entry-year">[date_start] – [date_end]</span>
+    </div>
+    <div class="entry-tech-row">
+      <span class="entry-tech">[tech_stack, comma-separated]</span>
+      <a class="entry-link" href="[link]">[link without https://]</a>
+    </div>
+    <ul class="compact-list">
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit, if needed]</li>
+    </ul>
+  </div>
+
+  <!-- Repeat <div class="entry"> for each project -->
+
+</section>
 """
     ),
     prompt_achievements=(

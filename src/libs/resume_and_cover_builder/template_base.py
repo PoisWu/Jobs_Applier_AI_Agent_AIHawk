@@ -123,20 +123,28 @@ prompt_projects_template = """
     <h2>Personal Projects</h2>
     <div class="entry">
       <div class="entry-header">
-          <span class="entry-name"><strong><a href="[Github Repo or Link]">[Project Name]</a></strong> | [Tech1, Tech2, Tech3]</span>
-          <span class="entry-year">[Month Year] – [Month Year]</span>
+          <span class="entry-name"><strong>[Project Name]</strong></span>
+          <span class="entry-year">[date_start] – [date_end]</span>
+      </div>
+      <div class="entry-tech-row">
+          <span class="entry-tech">[Tech1, Tech2, Tech3, ...]</span>
+          <a class="entry-link" href="[link]">[link without https://]</a>
       </div>
       <ul class="compact-list">
-          <li>[Describe what the project does and key technical decisions]</li>
-          <li>[Describe specific implementation details or outcomes]</li>
+          <li>[Action verb + what you built + technical benefit]</li>
+          <li>[Action verb + what you built + technical benefit]</li>
+          <li>[Action verb + what you built + technical benefit, if needed]</li>
       </ul>
     </div>
 </section>
 ```
 Important formatting rules:
-- The entry-name contains the bolded project name as a link, followed by " | " and a comma-separated list of key technologies.
-- Dates are right-aligned.
-- Bullet points should describe technical contributions, not just what the project is.
+- Line 1: Bold plain project name (no hyperlink) on the left, dates on the right.
+- Line 2: Tech stack (left) and repo URL without https:// (right) in one flex row.
+- Bullets follow below the tech row (2–3 per project).
+- Tech stack: copy ALL items verbatim, comma-separated.
+- Repo URL: href keeps the full URL; visible text strips https://.
+- Dates are read from date_start and date_end fields directly.
 - Do not use Font Awesome icon classes.
 - Include all projects from the data.
 The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```

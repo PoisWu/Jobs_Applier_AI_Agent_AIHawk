@@ -41,8 +41,12 @@ class ExperienceDetails(BaseModel):
 
 class Project(BaseModel):
     name: str | None = None
-    description: str | None = None
     link: HttpUrl | None = None
+    date_start: str | None = None
+    date_end: str | None = None
+    summary: str | None = None
+    highlights: list[str] | None = None
+    tech_stack: list[str] | None = None
 
 
 class Achievement(BaseModel):

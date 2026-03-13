@@ -159,6 +159,25 @@ section h2 {
   margin-left: 5px;
 }
 
+/* Personal Project tech-and-link row */
+.entry-tech-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0.2rem 0 0.2rem 0;
+}
+
+.entry-tech {
+  font-size: 0.85em;
+  color: #555;
+}
+
+.entry-link {
+  font-size: 0.85em;
+  white-space: nowrap;
+  margin-left: 0.5rem;
+}
+
 #achievements .compact-list {
   padding-top: 0.25rem;
 }
