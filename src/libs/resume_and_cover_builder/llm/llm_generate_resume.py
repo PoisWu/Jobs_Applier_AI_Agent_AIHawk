@@ -45,19 +45,66 @@ class LLMResumer:
         chain = prompt | self.llm_cheap | StrOutputParser()
         self.job_description = chain.invoke({"text": job_description_text})
 
-    def generate_header(self, data: dict[str, Any] | None = None) -> str:
+    def generate_header(self) -> str:
+        """Build the resume header HTML directly from personal information — no LLM call."""
+        p = self.resume.personal_information
+        if p is None:
+            return ""
+
+        SEP = '<span class="separator">◇</span>'
+
+        # Full name
+        name_parts = [part for part in [p.name, p.surname] if part]
+        full_name = " ".join(name_parts) if name_parts else ""
+
+        # Contact line 1: phone [◇ nationality]
+        line1_items = []
+        phone_parts = [part for part in [p.phone_prefix, p.phone] if part]
+        if phone_parts:
+            line1_items.append(" ".join(phone_parts))
+        if p.country:
+            line1_items.append(p.country)
+        line1_html = f" {SEP} ".join(line1_items)
+
+        # Contact line 2: email [◇ linkedin] [◇ github]
+        line2_items = []
+        if p.email:
+            line2_items.append(f'<a href="mailto:{p.email}">{p.email}</a>')
+        if p.linkedin:
+            url = str(p.linkedin).rstrip("/")
+            display = url.replace("https://", "").replace("http://", "")
+            line2_items.append(f'<a href="{url}">{display}</a>')
+        if p.github:
+            url = str(p.github).rstrip("/")
+            display = url.replace("https://", "").replace("http://", "")
+            line2_items.append(f'<a href="{url}">{display}</a>')
+        line2_html = f" {SEP} ".join(line2_items)
+
+        contact_lines = ""
+        if line1_html:
+            contact_lines += f'\n    <p class="contact-line">{line1_html}</p>'
+        if line2_html:
+            contact_lines += f'\n    <p class="contact-line">{line2_html}</p>'
+
+        return f'<header>\n  <h1>{full_name}</h1>\n  <div class="contact-info">{contact_lines}\n  </div>\n</header>'
+
+    def generate_summary_section(self, data: dict[str, Any] | None = None) -> str:
         """
-        Generate the header section of the resume.
+        Generate the professional summary section of the resume.
         Args:
-            data (dict): The personal information to use for generating the header.
+            data (dict): Optional override data for the prompt variables.
         Returns:
-            str: The generated header section.
+            str: The generated summary section HTML.
         """
-        header_prompt_template = preprocess_template_string(self.strings.prompt_header)
-        prompt = ChatPromptTemplate.from_template(header_prompt_template)
+        summary_prompt_template = preprocess_template_string(self.strings.prompt_summary)
+        prompt = ChatPromptTemplate.from_template(summary_prompt_template)
         chain = prompt | self.llm_cheap | StrOutputParser()
         if data is None:
-            input_data: dict[str, Any] = {"personal_information": self.resume.personal_information}
+            input_data: dict[str, Any] = {
+                "personal_information": self.resume.personal_information,
+                "experience_details": self.resume.experience_details,
+                "education_details": self.resume.education_details,
+            }
             if self.job_description is not None:
                 input_data["job_description"] = self.job_description
         else:
@@ -226,17 +273,12 @@ class LLMResumer:
         return output
 
     def _collect_skills(self) -> set[str]:
-        """Gather skills from experience and education details."""
+        """Gather skills from experience details (skills_acquired per job entry)."""
         skills: set[str] = set()
         if self.resume.experience_details:
             for exp in self.resume.experience_details:
                 if exp.skills_acquired:
                     skills.update(exp.skills_acquired)
-        if self.resume.education_details:
-            for edu in self.resume.education_details:
-                if edu.exam:
-                    for exam in edu.exam:
-                        skills.update(exam.keys())
         return skills
 
     def generate_additional_skills_section(self, data: dict[str, Any] | None = None) -> str:
@@ -285,7 +327,8 @@ class LLMResumer:
             input_data["job_description"] = self.job_description
         output = chain.invoke(input_data)
         logger.debug("Single-query full resume generation completed")
-        return f"<body>\n  {output}\n</body>"
+        header_html = self.generate_header()
+        return f"<body>\n  {header_html}\n  {output}\n</body>"
 
     def generate_html_resume(self) -> str:
         """
@@ -297,6 +340,11 @@ class LLMResumer:
         def header_fn():
             if self.resume.personal_information:
                 return self.generate_header()
+            return ""
+
+        def summary_fn():
+            if self.resume.personal_information or self.resume.experience_details:
+                return self.generate_summary_section()
             return ""
 
         def education_fn():
@@ -337,6 +385,7 @@ class LLMResumer:
         # Create a dictionary to map the function names to their respective callables
         functions = {
             "header": header_fn,
+            "summary": summary_fn,
             "education": education_fn,
             "work_experience": work_experience_fn,
             "projects": projects_fn,
@@ -360,6 +409,7 @@ class LLMResumer:
         full_resume = "<body>\n"
         full_resume += f"  {results.get('header', '')}\n"
         full_resume += "  <main>\n"
+        full_resume += f"    {results.get('summary', '')}\n"
         full_resume += f"    {results.get('work_experience', '')}\n"
         full_resume += f"    {results.get('education', '')}\n"
         full_resume += f"    {results.get('projects', '')}\n"

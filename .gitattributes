@@ -1,0 +1,2 @@
+# Encrypt specific files
+data_folder/plain_text_resume.yaml filter=git-crypt diff=git-crypt

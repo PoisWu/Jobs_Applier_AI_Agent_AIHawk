@@ -3,7 +3,6 @@
 /log/*
 
 # Personal data - do not commit
-data_folder/plain_text_resume.yaml
 data_folder/secrets.yaml
 data_folder/work_preferences.yaml
 data_folder/output/
@@ -168,3 +167,5 @@ venv.bak/
 mono_crash.*
 
 job_applications/
+
+mykey.key

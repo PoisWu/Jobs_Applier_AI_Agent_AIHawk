@@ -48,8 +48,16 @@ experience_details:
 
 projects:
   - name: OpenWidget
-    description: An open-source widget library
     link: https://github.com/janedoe/openwidget
+    date_start: "Jan 2024"
+    date_end: "Mar 2024"
+    summary: An open-source widget library for rapid UI development.
+    highlights:
+      - Built a composable widget system enabling fast UI assembly
+      - Implemented a plugin architecture for extensibility
+    tech_stack:
+      - TypeScript
+      - React
 
 achievements:
   - name: Hackathon Winner

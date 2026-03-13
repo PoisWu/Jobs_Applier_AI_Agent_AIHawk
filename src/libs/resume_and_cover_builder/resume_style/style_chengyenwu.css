@@ -152,6 +152,25 @@ h2::after {
   line-height: 1.25;
 }
 
+/* ── Personal Project tech-and-link row ── */
+.entry-tech-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 3px 0 3px 0;
+}
+
+.entry-tech {
+  font-size: 10pt;
+  color: #555;
+}
+
+.entry-link {
+  font-size: 10pt;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
 /* ── Bullet lists ── */
 .compact-list {
   margin: 4px 0 2px 1.5em;

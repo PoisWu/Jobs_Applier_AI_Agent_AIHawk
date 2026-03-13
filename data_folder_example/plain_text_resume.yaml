@@ -69,9 +69,18 @@ experience_details:
       - "Code reviews"
       - "Bug fixing"
 projects:
-  - name: "X"
-    description: "Y blah blah blah "
-    link: "https://github.com/haveagoodday"
+  - name: "Example Project"
+    link: "https://github.com/example/project"
+    date_start: "Jan 2025"
+    date_end: "Mar 2025"
+    summary: "A brief description of what the project is and its purpose."
+    highlights:
+      - "Built X using Y to achieve Z"
+      - "Implemented A for improved B"
+    tech_stack:
+      - "Python"
+      - "FastAPI"
+      - "PostgreSQL"
 
 
 

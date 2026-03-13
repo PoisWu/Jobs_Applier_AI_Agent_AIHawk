@@ -68,7 +68,7 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
     )
 
     sections = [
-        ("Header", _strip(ns.prompt_header)),
+        ("Summary", _strip(ns.prompt_summary)),
         ("Work Experience", _strip(ns.prompt_working_experience)),
         ("Education", _strip(ns.prompt_education)),
         ("Personal Projects", _strip(ns.prompt_projects)),
@@ -94,10 +94,12 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
 
     return (
         "Act as an HR expert and resume writer specialising in ATS-friendly resumes. "
-        "Your task is to generate a COMPLETE HTML resume in a SINGLE output.\n"
-        "Generate ALL sections in this order: Header, Work Experience, Education, Projects, "
-        "Achievements, Certifications, Skills. "
+        "Your task is to generate the `<main>` section of an HTML resume.\n"
+        "Render sections in this exact order: Summary, Work Experience, Education, "
+        "Projects, Achievements, Certifications, Skills. Sections MUST appear in this exact order. "
         "Skip any section entirely if its corresponding data is None or an empty list.\n"
+        "Aim for a single-page output. Keep each bullet point to one line. "
+        "Prioritize impact and specificity; omit low-value bullets.\n"
         f"{job_desc_note}\n"
         "Below are the formatting rules and templates for each section:\n\n"
         f"{combined_sections}\n\n"
@@ -106,10 +108,24 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
         f"{data_vars}\n"
         "---\n\n"
         "**Final Output Rules:**\n"
-        "- Output the full HTML as: `<header>...</header>\\n<main>\\n  [sections in order]\\n</main>`\n"
-        "- Do NOT include `<body>` tags.\n"
+        "Your output structure MUST follow this exact skeleton:\n"
+        "<main>\\n"
+        "  [Summary section]\\n"
+        "  [Work Experience section]\\n"
+        "  [Education section]\\n"
+        "  [Personal Projects section]\\n"
+        "  [Achievements section — omit entirely if achievements data is empty]\\n"
+        "  [Certifications section]\\n"
+        "  [Skills section]\\n"
+        "</main>\\n"
+        "- Do NOT include `<header>`, `<body>`, or any tags outside `<main>`.\n"
         "- Do NOT include ```html ``` code fences.\n"
         "- No explanations or additional text outside the HTML.\n"
+        "- Before emitting HTML, verify: (1) no placeholder text of the form `[...]` appears, "
+        "(2) all dates match the input data exactly, (3) `<header>` is the first element, "
+        "(4) `<main>` follows directly after `<header>`, "
+        "(5) sections inside `<main>` appear in order: Summary, Work Experience, Education, "
+        "Projects, Achievements, Certifications, Skills.\n"
     )
 
 
@@ -118,39 +134,6 @@ def _build_full_resume_prompt(ns: SimpleNamespace, *, with_job_description: bool
 # ---------------------------------------------------------------------------
 
 resume = SimpleNamespace(
-    prompt_header=(
-        """\
-
-Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to create a professional and polished header for the resume. The header should:
-
-1. **Contact Information**: Include your full name, phone number, nationality or country, email address, and LinkedIn profile. If GitHub is provided, include it too.
-2. **Formatting**: Use centered text with diamond (◇) separators between items on the same line. Do NOT use Font Awesome icons.
-3. **Name**: Use the exact name as provided in title case. Do NOT uppercase the entire name.
-
-Exclude any information that is not provided (None).
-
-- **My information:**
-  {personal_information}
-
-- **Template to Use**
-```
-<header>
-  <h1>[Name and Surname]</h1>
-  <div class="contact-info">
-    <p class="contact-line">[Your Prefix Phone number] <span class="separator">◇</span> [Nationality or Country]</p>
-    <p class="contact-line"><a href="mailto:[Your Email]">[Your Email]</a> <span class="separator">◇</span> <a href="[Link LinkedIn account]">[LinkedIn display text, e.g. linkedin.com/in/username]</a></p>
-  </div>
-</header>
-```
-Important formatting rules:
-- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "Cheng-Yen Wu").
-- Use the diamond symbol ◇ (U+25C7, LaTeX $\\diamond$) as separator between contact items on the same line.
-- If LinkedIn or GitHub or any field is not provided (None), omit that item from the contact line.
-- If GitHub is provided, add it to the second contact line after LinkedIn, separated by a diamond.
-- Do not use any Font Awesome icon classes.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
-"""
-    ),
     prompt_education=(
         """\
 
@@ -197,6 +180,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 4. **Bullet Points**: Describe key responsibilities and achievements with measurable results. Use concise, action-oriented language.
 
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
+If a role has zero technical achievements (e.g. military service), render the full `<div class="entry">` with `entry-header` (job title + dates) and `entry-details` (company + location), but replace the `<ul>` with a single `<p class="entry-description">` containing the description. Do NOT omit the wrapper or the header rows.
 
 - **My information:**
   {experience_details}
@@ -242,44 +226,78 @@ The results should be provided in html format, Provide only the html code for th
     prompt_projects=(
         """\
 
-Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to highlight personal projects. For each project:
+Act as an HR expert and resume writer specializing in ATS-friendly resumes.
+Your task is to generate an HTML snippet for the Personal Projects section of a resume, using the provided project data.
 
-1. **Header Format**: "**Project Name** | Tech1, Tech2, Tech3" on the left, dates on the right.
-2. **Project Name**: Should be a link to the GitHub repo or project page.
-3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details. Focus on what you built and how, not just what the project is.
+## YOUR INPUTS
 
-Do not use Font Awesome icons. Include all projects from the data.
+**Project Data:**
+{projects}
 
-- **My information:**
-  {projects}
+## OUTPUT RULES
 
-- **Template to Use**
-```
-<section id="side-projects">
-    <h2>Personal Projects</h2>
-    <div class="entry">
-      <div class="entry-header">
-          <span class="entry-name"><strong><a href="[Github Repo or Link]">[Project Name]</a></strong> | [Tech1, Tech2, Tech3]</span>
-          <span class="entry-year">[Month Year] – [Month Year]</span>
-      </div>
-      <ul class="compact-list">
-          <li>[Describe what the project does and key technical decisions]</li>
-          <li>[Describe specific implementation details or outcomes]</li>
-      </ul>
-    </div>
-</section>
-```
-Important formatting rules:
-- The entry-name contains the bolded project name as a link, followed by " | " and a comma-separated list of key technologies.
-- Dates are right-aligned.
-- Bullet points should describe technical contributions, not just what the project is.
+### Structure
+- Include ALL projects from the data. Do not skip any.
+- For each project, produce one `<div class="entry">` block using the template below.
+
+### Entry Layout (in this exact order)
+1. **Header line**: Bold plain project name (no hyperlink) on the left, date range on the right.
+2. **Tech-and-link row**: Tech stack on the left, repo URL on the right — both in one `<div class="entry-tech-row">`.
+3. **Bullet points**: Exactly 2–3 bullets below the tech-and-link row.
+
+### Header Format
+- Left side: Bold plain text project name — do NOT wrap it in an `<a>` tag.
+- Right side: Date range read directly from `date_start` and `date_end` fields. Do not parse dates from any text.
+
+### Tech-and-Link Row
+- Left: `<span class="entry-tech">` containing ALL `tech_stack` items verbatim, comma-separated. Do NOT omit any item.
+- Right: `<a class="entry-link" href="[full link]">` whose visible text is the URL with `https://` stripped (e.g. `github.com/user/repo`). Omit the `<a>` (but keep the `<span>`) if `link` is null.
+- Both are siblings inside `<div class="entry-tech-row">`.
+
+### Bullet Points
+- Each bullet must follow this pattern:
+  [Strong action verb] + [what you built or decided] + [technical benefit or outcome].
+- Optimize for general backend and software engineering roles: emphasize scalability, maintainability, testing practices, and system design decisions.
+- Draw from the `highlights` list as your source material — rephrase and elevate them, do not copy verbatim.
+- Use the `summary` field only for context, not as a bullet point.
+
+### Formatting
 - Do not use Font Awesome icon classes.
-- Include all projects from the data.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+- Do not add inline styles.
+- Do not include explanations, markdown, or code fences in your output.
+- Output only the raw HTML snippet — nothing before or after it.
+- If any project field is missing or null, omit that element silently.
+
+## TEMPLATE
+
+<section id="side-projects">
+  <h2>Personal Projects</h2>
+
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-name"><strong>[name]</strong></span>
+      <span class="entry-year">[date_start] – [date_end]</span>
+    </div>
+    <div class="entry-tech-row">
+      <span class="entry-tech">[tech_stack, comma-separated]</span>
+      <a class="entry-link" href="[link]">[link without https://]</a>
+    </div>
+    <ul class="compact-list">
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit, if needed]</li>
+    </ul>
+  </div>
+
+  <!-- Repeat <div class="entry"> for each project -->
+
+</section>
 """
     ),
     prompt_achievements=(
         """\
+
+If the achievements list is empty or None, output nothing at all — no `<section>` tag, no heading, no empty list.
 
 Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to list significant achievements. For each achievement, ensure you include:
 
@@ -392,6 +410,37 @@ The results should be provided in html format, Provide only the html code for th
     ),
 )
 
+resume.prompt_summary = """\
+
+Act as an expert HR recruiter and resume writer specializing in ATS-friendly resumes. Your task is to write a compelling professional summary (roughly 50 words) that acts as a "sales pitch" to grab a recruiter's attention by answering: "Why should we hire you?"
+
+Follow these guidelines:
+1. **Opening Sentence**: Start with the candidate's current title and years of experience using a strong, descriptive headline (e.g., "Result-driven Software Engineer with 5+ years of experience in..."). Do NOT open with vague phrases like "with experience in". Do NOT use first-person pronouns (no "I am...").
+2. **Key Skills & Expertise**: Mention 2–3 core skills or technical domains most relevant to the candidate's background.
+3. **Quantifiable Achievement**: Include at least one measurable achievement using numbers or percentages (e.g., "increased efficiency by 20%").
+4. **Value Addition**: Briefly state the candidate's career goal or what they bring to a prospective employer.
+
+Rules:
+- Keep it roughely 50 words.
+- Do NOT use first-person pronouns.
+- Avoid clichés like "hard-working team player"; use action-oriented, professional language.
+- Do NOT add a section heading — output only the `<section>` element.
+
+- **My information:**
+  Personal: {personal_information}
+  Experience: {experience_details}
+  Education: {education_details}
+
+- **Template to Use**
+```
+<section id="summary">
+    <h2>Summary</h2>
+    <p>[3–4 sentence professional summary, roughly 50 words]</p>
+</section>
+```
+The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+"""
+
 resume.prompt_full_resume = _build_full_resume_prompt(resume)
 
 # ---------------------------------------------------------------------------
@@ -400,39 +449,6 @@ resume.prompt_full_resume = _build_full_resume_prompt(resume)
 
 resume_job_description = SimpleNamespace(
     summarize_prompt_template=_summarize_prompt_template,
-    prompt_header=(
-        """\
-
-Act as an HR expert and resume writer specializing in ATS-friendly resumes. Your task is to create a professional and polished header for the resume. The header should:
-
-1. **Contact Information**: Include your full name, phone number, nationality or country, email address, and LinkedIn profile. If GitHub is provided, include it too.
-2. **Formatting**: Use centered text with diamond (◇) separators between items on the same line. Do NOT use Font Awesome icons.
-3. **Name**: Use the exact name as provided in title case. Do NOT uppercase the entire name.
-
-If any of the contact information fields are not provided (i.e., `None`), omit them from the header.
-
-- **My information:**
-  {personal_information}
-
-- **Template to Use**
-```
-<header>
-  <h1>[Name and Surname]</h1>
-  <div class="contact-info">
-    <p class="contact-line">[Your Prefix Phone number] <span class="separator">◇</span> [Nationality or Country]</p>
-    <p class="contact-line"><a href="mailto:[Your Email]">[Your Email]</a> <span class="separator">◇</span> <a href="[Link LinkedIn account]">[LinkedIn display text, e.g. linkedin.com/in/username]</a></p>
-  </div>
-</header>
-```
-Important formatting rules:
-- The name must NOT be uppercase; use normal title case exactly as provided (e.g. "Cheng-Yen Wu").
-- Use the diamond symbol ◇ (U+25C7, LaTeX $\\diamond$) as separator between contact items on the same line.
-- If LinkedIn or GitHub or any field is not provided (None), omit that item from the contact line.
-- If GitHub is provided, add it to the second contact line after LinkedIn, separated by a diamond.
-- Do not use any Font Awesome icon classes.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
-"""
-    ),
     prompt_education=(
         """\
 
@@ -483,6 +499,7 @@ Act as an HR expert and resume writer with a specialization in creating ATS-frie
 4. **Bullet Points**: Describe key responsibilities and achievements with measurable results. Use concise, action-oriented language.
 
 Include ALL experience entries from the data. Do not skip any. List in reverse chronological order.
+If a role has zero technical achievements (e.g. military service), render the full `<div class="entry">` with `entry-header` (job title + dates) and `entry-details` (company + location), but replace the `<ul>` with a single `<p class="entry-description">` containing the description. Do NOT omit the wrapper or the header rows.
 If any work experience details are not provided (i.e., `None`), omit those sections.
 
 - **My information:**
@@ -532,48 +549,82 @@ The results should be provided in html format, Provide only the html code for th
     prompt_projects=(
         """\
 
-Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to highlight personal projects, ensuring they align with the provided job description. For each project:
+Act as an HR expert and resume writer specializing in ATS-friendly resumes.
+Your task is to generate an HTML snippet for the Personal Projects section of a resume, using the provided project data and job description.
 
-1. **Header Format**: "**Project Name** | Tech1, Tech2, Tech3" on the left, dates on the right.
-2. **Project Name**: Should be a link to the GitHub repo or project page.
-3. **Bullet Points**: Describe technical contributions, architecture decisions, and specific implementation details relevant to the job description.
+## YOUR INPUTS
 
-Do not use Font Awesome icons. Include all projects from the data.
-If any project details are not provided (i.e., `None`), omit those sections.
+**Project Data:**
+{projects}
 
-- **My information:**
-  {projects}
+**Job Description:**
+{job_description}
 
-- **Job Description:**
-  {job_description}
+## OUTPUT RULES
 
-- **Template to Use**
-```
-<section id="side-projects">
-    <h2>Personal Projects</h2>
-    <div class="entry">
-      <div class="entry-header">
-          <span class="entry-name"><strong><a href="[Github Repo or Link]">[Project Name]</a></strong> | [Tech1, Tech2, Tech3]</span>
-          <span class="entry-year">[Month Year] – [Month Year]</span>
-      </div>
-      <ul class="compact-list">
-          <li>[Describe what the project does and key technical decisions]</li>
-          <li>[Describe specific implementation details or outcomes]</li>
-      </ul>
-    </div>
-</section>
-```
-Important formatting rules:
-- The entry-name contains the bolded project name as a link, followed by " | " and a comma-separated list of key technologies.
-- Dates are right-aligned.
-- Bullet points should describe technical contributions, not just what the project is.
+### Structure
+- Include ALL projects from the data. Do not skip any.
+- For each project, produce one `<div class="entry">` block using the template below.
+
+### Entry Layout (in this exact order)
+1. **Header line**: Bold plain project name (no hyperlink) on the left, date range on the right.
+2. **Tech-and-link row**: Tech stack on the left, repo URL on the right — both in one `<div class="entry-tech-row">`.
+3. **Bullet points**: Exactly 2–3 bullets below the tech-and-link row.
+
+### Header Format
+- Left side: Bold plain text project name — do NOT wrap it in an `<a>` tag.
+- Right side: Date range read directly from `date_start` and `date_end` fields. Do not parse dates from any text.
+
+### Tech-and-Link Row
+- Left: `<span class="entry-tech">` containing ALL `tech_stack` items verbatim, comma-separated. Do NOT omit any item.
+- Right: `<a class="entry-link" href="[full link]">` whose visible text is the URL with `https://` stripped (e.g. `github.com/user/repo`). Omit the `<a>` (but keep the `<span>`) if `link` is null.
+- Both are siblings inside `<div class="entry-tech-row">`.
+
+### Bullet Points
+- Each bullet must follow this pattern:
+  [Strong action verb] + [what you built or decided] + [technical benefit or outcome].
+- Prioritize language and keywords that match the job description (e.g., scalability, reliability, performance, maintainability).
+- Draw from the `highlights` list as your source material — rephrase and elevate them, do not copy verbatim.
+- Use the `summary` field only for context, not as a bullet point.
+- If no job description is provided, optimize for general backend and software engineering roles: emphasize scalability, maintainability, testing practices, and system design decisions.
+
+### Formatting
 - Do not use Font Awesome icon classes.
-- Include all projects from the data.
-The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+- Do not add inline styles.
+- Do not include explanations, markdown, or code fences in your output.
+- Output only the raw HTML snippet — nothing before or after it.
+- If any project field is missing or null, omit that element silently.
+
+## TEMPLATE
+
+<section id="side-projects">
+  <h2>Personal Projects</h2>
+
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-name"><strong>[name]</strong></span>
+      <span class="entry-year">[date_start] – [date_end]</span>
+    </div>
+    <div class="entry-tech-row">
+      <span class="entry-tech">[tech_stack, comma-separated]</span>
+      <a class="entry-link" href="[link]">[link without https://]</a>
+    </div>
+    <ul class="compact-list">
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit]</li>
+      <li>[Action verb + what you did + technical benefit, if needed]</li>
+    </ul>
+  </div>
+
+  <!-- Repeat <div class="entry"> for each project -->
+
+</section>
 """
     ),
     prompt_achievements=(
         """\
+
+If the achievements list is empty or None, output nothing at all — no `<section>` tag, no heading, no empty list.
 
 Act as an HR expert and resume writer with a specialization in creating ATS-friendly resumes. Your task is to list significant achievements based on the provided job description. For each achievement, ensure you include:
 
@@ -701,6 +752,41 @@ The results should be provided in html format, Provide only the html code for th
 """
     ),
 )
+
+resume_job_description.prompt_summary = """\
+
+Act as an expert HR recruiter and resume writer specializing in ATS-friendly resumes. Your task is to write a compelling professional summary (50–100 words, 3–4 sentences) tailored to the job description, acting as a "sales pitch" to grab the recruiter's attention by answering: "Why should we hire you for this role?"
+
+Follow these guidelines:
+1. **Opening Sentence**: Start with the candidate's current title and years of experience using a strong, descriptive headline (e.g., "Result-driven Software Engineer with 5+ years of experience in..."). Do NOT open with vague phrases like "with experience in". Do NOT use first-person pronouns (no "I am...").
+2. **Key Skills & Expertise**: Mention 2–3 core skills most relevant to the job description.
+3. **Quantifiable Achievement**: Include at least one measurable achievement using numbers or percentages that aligns with the role (e.g., "increased efficiency by 20%").
+4. **Value Addition**: Briefly state what the candidate brings to this specific company or role.
+
+Rules:
+- Keep it between 50–100 words.
+- Tailor every sentence to match the specific job description.
+- Do NOT use first-person pronouns.
+- Avoid clichés like "hard-working team player"; use action-oriented, professional language.
+- Do NOT add a section heading — output only the `<section>` element.
+
+- **My information:**
+  Personal: {personal_information}
+  Experience: {experience_details}
+  Education: {education_details}
+
+- **Job Description:**
+  {job_description}
+
+- **Template to Use**
+```
+<section id="summary">
+    <h2>Summary</h2>
+    <p>[3–4 sentence professional summary tailored to the job, 50–100 words]</p>
+</section>
+```
+The results should be provided in html format, Provide only the html code for the resume, without any explanations or additional text and also without ```html ```
+"""
 
 resume_job_description.prompt_full_resume = _build_full_resume_prompt(resume_job_description, with_job_description=True)
 
