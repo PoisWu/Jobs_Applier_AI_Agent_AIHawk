@@ -6,9 +6,12 @@ from pathlib import Path
 import inquirer
 
 from src.app_config import AppConfig
-from src.libs.resume_and_cover_builder import ResumeFacade, ResumeGenerator, StyleManager
+from src.libs.job_service import JobService
+from src.libs.resume_and_cover_builder import ResumeGenerator, ResumeService, StyleManager
 from src.logging import logger
 from src.utils.chrome_utils import init_browser
+
+_OUTPUT_PATH = Path("data_folder/output")
 
 
 def _select_style(style_manager: StyleManager) -> None:
@@ -39,21 +42,28 @@ def _select_style(style_manager: StyleManager) -> None:
         logger.warning("No style selected. Proceeding with default style.")
 
 
-def _build_facade(app_config: AppConfig, style_manager: StyleManager) -> tuple[ResumeFacade, ResumeGenerator]:
-    """Build and return a configured ResumeFacade with shared setup logic."""
-    resume_generator = ResumeGenerator()
-    driver = init_browser()
-    resume_generator.set_resume_object(app_config.resume_object)
+def _build_job_service(app_config: AppConfig) -> JobService:
+    """Build a ``JobService`` wired up with its own Selenium driver."""
+    job_service = JobService(
+        api_key=app_config.secrets.llm_api_key,
+        output_path=_OUTPUT_PATH,
+    )
+    job_service.set_driver(init_browser())
+    return job_service
 
-    resume_facade = ResumeFacade(
+
+def _build_resume_service(app_config: AppConfig, style_manager: StyleManager) -> ResumeService:
+    """Build a ``ResumeService`` wired up with its own Selenium driver."""
+    resume_generator = ResumeGenerator()
+    resume_service = ResumeService(
         api_key=app_config.secrets.llm_api_key,
         style_manager=style_manager,
         resume_generator=resume_generator,
         resume_object=app_config.resume_object,
-        output_path=Path("data_folder/output"),
+        output_path=_OUTPUT_PATH,
     )
-    resume_facade.set_driver(driver)
-    return resume_facade, resume_generator
+    resume_service.set_driver(init_browser())
+    return resume_service
 
 
 def _write_pdf(pdf_base64: str, output_path: Path) -> None:
@@ -85,14 +95,45 @@ def create_cover_letter(app_config: AppConfig) -> None:
         answers = inquirer.prompt(questions)
         job_url = answers.get("job_url")
 
-        resume_facade, _ = _build_facade(app_config, style_manager)
-        resume_facade.link_to_job(job_url)
-        result_base64, suggested_name = resume_facade.create_cover_letter()
+        job_service = _build_job_service(app_config)
+        job = job_service.fetch_from_url(job_url)
+
+        resume_service = _build_resume_service(app_config, style_manager)
+        result_base64, suggested_name = resume_service.create_cover_letter(job)
 
         output_dir = app_config.output_dir / suggested_name
         _write_pdf(result_base64, output_dir / "cover_letter_tailored.pdf")
     except Exception as e:
         logger.exception(f"An error occurred while creating the cover letter: {e}")
+        raise
+
+
+def create_resume_pdf_from_file(app_config: AppConfig) -> None:
+    """Generate a job-tailored resume from a local file (PDF, screenshot, text)."""
+    try:
+        logger.info("Generating a tailored resume from a local job file.")
+        style_manager = StyleManager()
+        _select_style(style_manager)
+
+        questions = [
+            inquirer.Text(
+                "file_path",
+                message="Enter the path to the job file (PDF, screenshot, HTML, or text):",
+            )
+        ]
+        answers = inquirer.prompt(questions)
+        file_path = answers.get("file_path", "").strip()
+
+        job_service = _build_job_service(app_config)
+        job = job_service.fetch_from_file(file_path)
+
+        resume_service = _build_resume_service(app_config, style_manager)
+        result_base64, suggested_name = resume_service.create_resume_pdf_tailored(job)
+
+        output_dir = app_config.output_dir / suggested_name
+        _write_pdf(result_base64, output_dir / "resume_tailored.pdf")
+    except Exception as e:
+        logger.exception(f"An error occurred while creating the resume from file: {e}")
         raise
 
 
@@ -107,9 +148,11 @@ def create_resume_pdf_job_tailored(app_config: AppConfig) -> None:
         answers = inquirer.prompt(questions)
         job_url = answers.get("job_url")
 
-        resume_facade, _ = _build_facade(app_config, style_manager)
-        resume_facade.link_to_job(job_url)
-        result_base64, suggested_name = resume_facade.create_resume_pdf_job_tailored()
+        job_service = _build_job_service(app_config)
+        job = job_service.fetch_from_url(job_url)
+
+        resume_service = _build_resume_service(app_config, style_manager)
+        result_base64, suggested_name = resume_service.create_resume_pdf_tailored(job)
 
         output_dir = app_config.output_dir / suggested_name
         _write_pdf(result_base64, output_dir / "resume_tailored.pdf")
@@ -125,8 +168,8 @@ def create_resume_pdf(app_config: AppConfig) -> None:
         style_manager = StyleManager()
         _select_style(style_manager)
 
-        resume_facade, _ = _build_facade(app_config, style_manager)
-        result_base64 = resume_facade.create_resume_pdf()
+        resume_service = _build_resume_service(app_config, style_manager)
+        result_base64 = resume_service.create_resume_pdf()
 
         output_dir = app_config.output_dir
         _write_pdf(result_base64, output_dir / "resume_base.pdf")
@@ -146,6 +189,7 @@ def handle_inquiries(selected_actions: list[str], app_config: AppConfig) -> None
             "Generate Resume": create_resume_pdf,
             "Generate Resume Tailored for Job Description": create_resume_pdf_job_tailored,
             "Generate Tailored Cover Letter for Job Description": create_cover_letter,
+            "Generate Resume from Local Job File (PDF/Screenshot/Text)": create_resume_pdf_from_file,
         }
 
         handler = action_map.get(selected_actions)
@@ -170,6 +214,7 @@ def prompt_user_action() -> str:
                     "Generate Resume",
                     "Generate Resume Tailored for Job Description",
                     "Generate Tailored Cover Letter for Job Description",
+                    "Generate Resume from Local Job File (PDF/Screenshot/Text)",
                 ],
             ),
         ]

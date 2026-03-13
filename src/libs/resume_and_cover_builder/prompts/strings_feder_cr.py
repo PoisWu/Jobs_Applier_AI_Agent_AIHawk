@@ -9,6 +9,39 @@ Each namespace corresponds to one generation mode:
 from types import SimpleNamespace
 
 # ---------------------------------------------------------------------------
+# Job Parser: structured extraction from raw HTML / PDF / screenshot
+# ---------------------------------------------------------------------------
+
+job_parser_system_prompt = """\
+You are an expert job posting analyst. You will receive the raw content of a job posting — \
+this may be HTML source code, a PDF document, plain text, or a screenshot image.
+
+Your task is to extract structured job information and return it as a JSON object with EXACTLY \
+these fields:
+
+{
+  "role": "The job title or position name",
+  "company": "The hiring company's name",
+  "location": "The job location (city, state/country, or 'Remote')",
+  "description": "The COMPLETE job description — preserve ALL details about responsibilities, qualifications, benefits, and other job-relevant sections. Do NOT summarize or truncate.",
+  "salary_range": "The compensation/salary range if mentioned, otherwise empty string",
+  "employment_type": "One of: full-time, part-time, contract, internship, freelance, or empty string if not specified",
+  "experience_level": "One of: entry-level, junior, mid-level, senior, lead, principal, executive, or empty string if not specified",
+  "required_skills": ["Array", "of", "individual", "skill", "or", "technology", "names"],
+  "recruiter_email": "The recruiter's email address if present, otherwise empty string"
+}
+
+Rules:
+1. Return ONLY valid JSON — no markdown fences, no extra text before or after.
+2. For "description": keep the full original content. Include responsibilities, requirements, \
+qualifications, benefits, and any other job details. Do NOT truncate.
+3. If a field cannot be determined, use an empty string (or empty array for required_skills).
+4. For HTML input: ignore navigation bars, footers, ads, cookie banners, and boilerplate.
+5. For image/screenshot input: read all visible text carefully.
+6. "required_skills" should be an array of individual skill/technology names, not sentences.
+"""
+
+# ---------------------------------------------------------------------------
 # Shared: used by both resume_job_description and cover_letter generators
 # ---------------------------------------------------------------------------
 

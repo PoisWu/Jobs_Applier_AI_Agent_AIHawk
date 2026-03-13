@@ -1,183 +1,267 @@
-"""Parse job description pages using an LLM with RAG retrieval."""
+"""Parse job postings using the OpenAI Responses API.
 
-import os
+Supports HTML, plain text, PDF, and screenshot/image inputs.
+The Responses API handles PDF text+image extraction server-side —
+no local conversion is required.
+"""
+
+import base64
+import json
 import re
-import tempfile
+from datetime import datetime
+from typing import Any
 
-from langchain_community.document_loaders import TextLoader
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from langchain_text_splitters import TokenTextSplitter
+import openai
 from loguru import logger
 
 from config import settings
-from src.libs.resume_and_cover_builder.llm.llm_chat_model import LoggerChatModel
+from src.job import Job
+from src.libs.resume_and_cover_builder.llm.llm_chat_model import log_llm_call
+from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
+    job_parser_system_prompt,
+)
+
+# Maps source_type → MIME-type used by the Responses API ``input_file`` block.
+_MIME_MAP: dict[str, str] = {
+    "pdf": "application/pdf",
+    "screenshot": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "html": "text/html",
+    "text": "text/plain",
+}
+
+# Default filenames when the caller does not supply one.
+_DEFAULT_FILENAME: dict[str, str] = {
+    "pdf": "job_posting.pdf",
+    "screenshot": "screenshot.png",
+    "html": "page.html",
+    "text": "posting.txt",
+}
 
 
 class LLMParser:
-    def __init__(self, openai_api_key: str) -> None:
-        self.llm = LoggerChatModel(
-            ChatOpenAI(
-                model_name=settings.LLM_MODEL,
-                openai_api_key=openai_api_key,
-                temperature=settings.LLM_TEMPERATURE,
-            )
-        )
-        self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
-        self.vectorstore = None
+    """Extract structured job information via a *single* OpenAI Responses API call.
 
-    def set_body_html(self, body_html: str) -> None:
-        """
-        Retrieves the job description from HTML, processes it, and initializes the vectorstore.
+    This replaces the previous FAISS/RAG pipeline.  For PDF and image inputs
+    the API natively processes the binary content — no local conversion
+    (e.g. pdf2image) is needed.
+    """
+
+    def __init__(self, api_key: str, model: str | None = None) -> None:
+        self.client = openai.OpenAI(api_key=api_key)
+        self.model = model or settings.LLM_MODEL
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def parse(
+        self,
+        content: str | bytes,
+        source_type: str,
+        filename: str | None = None,
+    ) -> Job:
+        """Parse *content* and return a populated :class:`Job`.
+
         Args:
-            body_html (str): The HTML content to process.
-        """
+            content: Raw content — a UTF-8 string for html/text sources, or
+                     raw ``bytes`` for pdf/screenshot sources.
+            source_type: One of ``"html"``, ``"text"``, ``"pdf"``,
+                         ``"screenshot"``.
+            filename: Optional human-readable filename hint sent to the API.
 
-        # Save the HTML content to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".html", mode="w", encoding="utf-8") as temp_file:
-            temp_file.write(body_html)
-            temp_file_path = temp_file.name
-        try:
-            loader = TextLoader(temp_file_path, encoding="utf-8", autodetect_encoding=True)
-            document = loader.load()
-            logger.debug("Document successfully loaded.")
-        except Exception as e:
-            logger.error(f"Error during document loading: {e}")
-            raise
-        finally:
-            os.remove(temp_file_path)
-            logger.debug(f"Temporary file removed: {temp_file_path}")
-
-        # Split the text into chunks
-        text_splitter = TokenTextSplitter(chunk_size=500, chunk_overlap=50)
-        all_splits = text_splitter.split_documents(document)
-        logger.debug(f"Text split into {len(all_splits)} fragments.")
-
-        # Create the vectorstore using FAISS
-        try:
-            self.vectorstore = FAISS.from_documents(documents=all_splits, embedding=self.llm_embeddings)
-            logger.debug("Vectorstore successfully initialized.")
-        except Exception as e:
-            logger.error(f"Error during vectorstore creation: {e}")
-            raise
-
-    def _retrieve_context(self, query: str, top_k: int = 3) -> str:
-        """
-        Retrieves the most relevant text fragments using the retriever.
-        Args:
-            query (str): The search query.
-            top_k (int): Number of fragments to retrieve.
         Returns:
-            str: Concatenated text fragments.
+            A :class:`Job` instance with as many fields filled as the LLM
+            could extract.
         """
-        if not self.vectorstore:
-            raise ValueError("Vectorstore not initialized. Run extract_job_description first.")
+        logger.info(f"Parsing job content (source_type={source_type}, {self._content_size(content)} bytes)")
+        content_blocks = self._build_content_blocks(content, source_type, filename)
 
-        retriever = self.vectorstore.as_retriever()
-        retrieved_docs = retriever.get_relevant_documents(query)[:top_k]
-        context = "\n\n".join(doc.page_content for doc in retrieved_docs)
-        logger.debug(f"Context retrieved for query '{query}': {context[:200]}...")  # Log the first 200 characters
-        return context
+        response = self._call_api(content_blocks)
+        job = self._parse_response(response)
+        job.parsed_at = datetime.now()
+        return job
 
-    def _extract_information(self, question: str, retrieval_query: str) -> str:
-        """
-        Generic method to extract specific information using the retriever and LLM.
-        Args:
-            question (str): The question to ask the LLM for extraction.
-            retrieval_query (str): The query to use for retrieving relevant context.
-        Returns:
-            str: The extracted information.
-        """
-        context = self._retrieve_context(retrieval_query)
+    # ------------------------------------------------------------------
+    # Internal: build request
+    # ------------------------------------------------------------------
 
-        prompt = ChatPromptTemplate.from_template(
-            template="""
-            You are an expert in extracting specific information from job descriptions.
-            Carefully read the job description context below and provide a clear and concise answer to the question.
+    def _build_content_blocks(
+        self,
+        content: str | bytes,
+        source_type: str,
+        filename: str | None,
+    ) -> list[dict[str, Any]]:
+        """Assemble the ``content`` list for the Responses API ``input`` message."""
+        blocks: list[dict[str, Any]] = [
+            {"type": "input_text", "text": job_parser_system_prompt},
+        ]
 
-            Context: {context}
-
-            Question: {question}
-            Answer:
-            """
-        )
-
-        formatted_prompt = prompt.format(context=context, question=question)
-        logger.debug(f"Formatted prompt for extraction: {formatted_prompt[:200]}...")  # Log the first 200 characters
-
-        try:
-            chain = prompt | self.llm | StrOutputParser()
-            result = chain.invoke({"context": context, "question": question})
-            extracted_info = result.strip()
-            logger.debug(f"Extracted information: {extracted_info}")
-            return extracted_info
-        except Exception as e:
-            logger.error(f"Error during information extraction: {e}")
-            return ""
-
-    def extract_job_description(self) -> str:
-        """
-        Extracts the company name from the job description.
-        Returns:
-            str: The extracted job description.
-        """
-        question = "What is the job description of the company?"
-        retrieval_query = "Job description"
-        logger.debug("Starting job description extraction.")
-        return self._extract_information(question, retrieval_query)
-
-    def extract_company_name(self) -> str:
-        """
-        Extracts the company name from the job description.
-        Returns:
-            str: The extracted company name.
-        """
-        question = "What is the company's name?"
-        retrieval_query = "Company name"
-        logger.debug("Starting company name extraction.")
-        return self._extract_information(question, retrieval_query)
-
-    def extract_role(self) -> str:
-        """
-        Extracts the sought role/title from the job description.
-        Returns:
-            str: The extracted role/title.
-        """
-        question = "What is the role or title sought in this job description?"
-        retrieval_query = "Job title"
-        logger.debug("Starting role/title extraction.")
-        return self._extract_information(question, retrieval_query)
-
-    def extract_location(self) -> str:
-        """
-        Extracts the location from the job description.
-        Returns:
-            str: The extracted location.
-        """
-        question = "What is the location mentioned in this job description?"
-        retrieval_query = "Location"
-        logger.debug("Starting location extraction.")
-        return self._extract_information(question, retrieval_query)
-
-    def extract_recruiter_email(self) -> str:
-        """
-        Extracts the recruiter's email from the job description.
-        Returns:
-            str: The extracted recruiter's email.
-        """
-        question = "What is the recruiter's email address in this job description?"
-        retrieval_query = "Recruiter email"
-        logger.debug("Starting recruiter email extraction.")
-        email = self._extract_information(question, retrieval_query)
-
-        # Validate the extracted email using regex
-        email_regex = r"[\w\.-]+@[\w\.-]+\.\w+"
-        if re.match(email_regex, email):
-            logger.debug("Valid recruiter's email.")
-            return email
+        if source_type in ("html", "text"):
+            # Send raw text directly
+            text = content if isinstance(content, str) else content.decode("utf-8", errors="replace")
+            blocks.append({"type": "input_text", "text": text})
         else:
-            logger.warning("Invalid or not found recruiter's email.")
-            return ""
+            # Binary content — use input_file with base64 encoding
+            raw_bytes = content if isinstance(content, bytes) else content.encode("utf-8")
+            b64_data = base64.b64encode(raw_bytes).decode("ascii")
+            fname = filename or _DEFAULT_FILENAME.get(source_type, "file.bin")
+            blocks.append(
+                {
+                    "type": "input_file",
+                    "filename": fname,
+                    "file_data": f"data:{_MIME_MAP.get(source_type, 'application/octet-stream')};base64,{b64_data}",
+                }
+            )
+
+        return blocks
+
+    # ------------------------------------------------------------------
+    # Internal: call the API
+    # ------------------------------------------------------------------
+
+    def _call_api(self, content_blocks: list[dict[str, Any]]) -> Any:
+        """Send a single request to the OpenAI Responses API with retry."""
+        import time as _time
+
+        max_retries = settings.MAX_LLM_RETRIES
+        retry_delay = settings.BASE_RETRY_DELAY
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = self.client.responses.create(
+                    model=self.model,
+                    input=[
+                        {
+                            "role": "user",
+                            "content": content_blocks,
+                        }
+                    ],
+                )
+
+                # Log the call (token usage, cost, etc.)
+                self._log_response(content_blocks, response)
+                return response
+
+            except openai.RateLimitError as err:
+                wait = self._parse_wait_time(str(err))
+                logger.warning(f"Rate limit hit. Waiting {wait}s before retry (attempt {attempt}/{max_retries})…")
+                _time.sleep(wait)
+            except openai.APIError as err:
+                logger.error(f"OpenAI API error: {err}. Retrying in {retry_delay}s (attempt {attempt}/{max_retries})…")
+                _time.sleep(retry_delay)
+                retry_delay *= 2
+            except Exception as err:
+                logger.error(f"Unexpected error: {err}. Retrying in {retry_delay}s (attempt {attempt}/{max_retries})…")
+                _time.sleep(retry_delay)
+                retry_delay *= 2
+
+        raise RuntimeError("Failed to get a response from the model after multiple attempts.")
+
+    # ------------------------------------------------------------------
+    # Internal: parse the response
+    # ------------------------------------------------------------------
+
+    def _parse_response(self, response: Any) -> Job:
+        """Extract JSON from the Responses API reply and hydrate a ``Job``."""
+        # The Responses API returns an object with .output
+        # containing message items; collect all text.
+        raw_text = ""
+        for item in response.output:
+            if item.type == "message":
+                for content_block in item.content:
+                    if content_block.type == "output_text":
+                        raw_text += content_block.text
+
+        if not raw_text:
+            logger.warning("Empty response from the model — returning blank Job.")
+            return Job()
+
+        # Strip markdown code fences if the model wrapped the JSON
+        cleaned = re.sub(r"^```(?:json)?\s*", "", raw_text.strip())
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+
+        try:
+            data: dict[str, Any] = json.loads(cleaned)
+        except json.JSONDecodeError as exc:
+            logger.warning(f"Failed to parse JSON from LLM response: {exc}")
+            logger.debug(f"Raw response text:\n{raw_text[:500]}")
+            return Job()
+
+        return self._dict_to_job(data)
+
+    @staticmethod
+    def _dict_to_job(data: dict[str, Any]) -> Job:
+        """Safely map *data* (from the LLM) to a ``Job``, ignoring unknown keys."""
+        skills = data.get("required_skills", [])
+        if isinstance(skills, str):
+            # Gracefully handle the model returning a comma-separated string
+            skills = [s.strip() for s in skills.split(",") if s.strip()]
+
+        return Job(
+            role=str(data.get("role", "")),
+            company=str(data.get("company", "")),
+            location=str(data.get("location", "")),
+            description=str(data.get("description", "")),
+            salary_range=str(data.get("salary_range", "")),
+            employment_type=str(data.get("employment_type", "")),
+            experience_level=str(data.get("experience_level", "")),
+            required_skills=skills,
+            recruiter_email=str(data.get("recruiter_email", "")),
+        )
+
+    # ------------------------------------------------------------------
+    # Logging
+    # ------------------------------------------------------------------
+
+    def _log_response(self, content_blocks: list[dict[str, Any]], response: Any) -> None:
+        """Log token usage and cost for the Responses API call."""
+        usage = response.usage
+        input_tokens = getattr(usage, "input_tokens", 0) if usage else 0
+        output_tokens = getattr(usage, "output_tokens", 0) if usage else 0
+
+        # Build a serialisable summary of the prompt (avoid dumping base64)
+        prompt_summary: list[str] = []
+        for block in content_blocks:
+            if block.get("type") == "input_text":
+                text = block["text"]
+                prompt_summary.append(text[:300] + "…" if len(text) > 300 else text)
+            elif block.get("type") == "input_file":
+                prompt_summary.append(f"[file: {block.get('filename', '?')}]")
+
+        # Collect reply text
+        reply_text = ""
+        for item in response.output:
+            if item.type == "message":
+                for cb in item.content:
+                    if cb.type == "output_text":
+                        reply_text += cb.text
+
+        log_llm_call(
+            model=response.model or self.model,
+            prompts=prompt_summary,
+            reply=reply_text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+
+    # ------------------------------------------------------------------
+    # Utilities
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_wait_time(error_message: str) -> int:
+        """Extract a wait-time (seconds) from a rate-limit error string."""
+        match = re.search(r"try again in (\d+)s", error_message)
+        if match:
+            return int(match.group(1))
+        match = re.search(r"retry after (\d+)", error_message, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        return 60
+
+    @staticmethod
+    def _content_size(content: str | bytes) -> int:
+        return len(content.encode("utf-8")) if isinstance(content, str) else len(content)

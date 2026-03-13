@@ -1,7 +1,7 @@
 """
 Configuration for the resume and cover letter builder.
 
-BuilderConfig is initialised once by ResumeFacade and read by every downstream
+BuilderConfig is initialised once by ResumeService and read by every downstream
 module.  Mutations after construction are discouraged — pass a fresh instance
 instead of mutating the module-level ``builder_config``.
 """

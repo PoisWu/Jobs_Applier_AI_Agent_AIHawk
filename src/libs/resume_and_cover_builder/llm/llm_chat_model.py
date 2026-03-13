@@ -25,6 +25,9 @@ def _log_request(prompts: Any, parsed_reply: dict[str, dict]) -> None:
         prompts = prompts.text
     elif isinstance(prompts, dict):
         prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
+    elif isinstance(prompts, list):
+        # Multimodal / Responses API: already a list of summary strings
+        prompts = prompts
     else:
         prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
 
@@ -47,6 +50,39 @@ def _log_request(prompts: Any, parsed_reply: dict[str, dict]) -> None:
         "prompts": prompts,
         "replies": parsed_reply["content"],
         "total_tokens": total_tokens,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_cost": total_cost,
+    }
+
+    with open(calls_log, "a", encoding="utf-8") as f:
+        json_string = json.dumps(log_entry, ensure_ascii=False, indent=4)
+        f.write(json_string + "\n")
+
+
+def log_llm_call(
+    model: str,
+    prompts: Any,
+    reply: str,
+    input_tokens: int,
+    output_tokens: int,
+) -> None:
+    """Standalone logging helper shared by ``LoggerChatModel`` and the Responses-API parser.
+
+    This writes to the same ``open_ai_calls.json`` log file as ``_log_request``.
+    """
+    calls_log = builder_config.LOG_OUTPUT_FILE_PATH / "open_ai_calls.json"
+
+    prompt_price_per_token = settings.PROMPT_PRICE_PER_TOKEN
+    completion_price_per_token = settings.COMPLETION_PRICE_PER_TOKEN
+    total_cost = (input_tokens * prompt_price_per_token) + (output_tokens * completion_price_per_token)
+
+    log_entry = {
+        "model": model,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "prompts": prompts,
+        "replies": reply,
+        "total_tokens": input_tokens + output_tokens,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "total_cost": total_cost,
