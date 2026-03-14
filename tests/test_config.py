@@ -4,9 +4,9 @@ from config import settings
 
 
 def test_llm_model_defaults():
-    assert settings.LLM_MODEL == "gpt-4o-mini"
+    assert settings.LLM_MODEL == "gpt-5.4"
     assert settings.LLM_MODEL_TYPE == "openai"
-    assert settings.LLM_TEMPERATURE == 0.4
+    assert settings.LLM_TEMPERATURE == 1
 
 
 def test_token_pricing():

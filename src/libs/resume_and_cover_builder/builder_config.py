@@ -1,7 +1,7 @@
 """
 Configuration for the resume and cover letter builder.
 
-BuilderConfig is initialised once by ResumeFacade and read by every downstream
+BuilderConfig is initialised once by ResumeService and read by every downstream
 module.  Mutations after construction are discouraged — pass a fresh instance
 instead of mutating the module-level ``builder_config``.
 """
@@ -30,8 +30,6 @@ $body
 
 class BuilderConfig(BaseModel):
     STYLES_DIRECTORY: Path | None = None
-    LOG_OUTPUT_FILE_PATH: Path | None = None
-    API_KEY: str | None = None
     html_template: str = _DEFAULT_HTML_TEMPLATE
     use_single_query: bool = True
 
