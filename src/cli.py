@@ -44,24 +44,16 @@ def _select_style(style_manager: StyleManager) -> None:
         logger.warning("No style selected. Proceeding with default style.")
 
 
-def _build_job_service(app_config: AppConfig) -> JobService:
-    """Build a ``JobService`` wired up with its own Selenium driver."""
+def _build_job_service(app_config: AppConfig, *, with_driver: bool = False) -> JobService:
+    """Build a ``JobService``, optionally wired up with a Selenium driver."""
     llm_provider = LLMProvider(LLMConfig(API_KEY=app_config.secrets.llm_api_key, LOG_OUTPUT_FILE_PATH=_OUTPUT_PATH))
     job_service = JobService(
         llm_provider=llm_provider,
         output_path=_OUTPUT_PATH,
     )
-    job_service.set_driver(init_browser())
+    if with_driver:
+        job_service.set_driver(init_browser())
     return job_service
-
-
-def _build_job_service_only(app_config: AppConfig) -> JobService:
-    """Build a ``JobService`` without a Selenium driver (for file/text input)."""
-    llm_provider = LLMProvider(LLMConfig(API_KEY=app_config.secrets.llm_api_key, LOG_OUTPUT_FILE_PATH=_OUTPUT_PATH))
-    return JobService(
-        llm_provider=llm_provider,
-        output_path=_OUTPUT_PATH,
-    )
 
 
 def _build_resume_service(app_config: AppConfig, style_manager: StyleManager) -> ResumeService:
@@ -118,7 +110,7 @@ def fetch_job_from_url(app_config: AppConfig) -> None:
             logger.warning("No URL provided. Aborting.")
             return
 
-        job_service = _build_job_service(app_config)
+        job_service = _build_job_service(app_config, with_driver=True)
         job = job_service.fetch_from_url(job_url)
         _print_job_summary(job)
     except Exception as e:
@@ -141,7 +133,7 @@ def fetch_job_from_file(app_config: AppConfig) -> None:
             logger.warning("No file path provided. Aborting.")
             return
 
-        job_service = _build_job_service_only(app_config)
+        job_service = _build_job_service(app_config)
         job = job_service.fetch_from_file(file_path)
         _print_job_summary(job)
     except Exception as e:
@@ -165,7 +157,7 @@ def fetch_job_from_text(app_config: AppConfig) -> None:
             logger.warning("No text provided. Aborting.")
             return
 
-        job_service = _build_job_service_only(app_config)
+        job_service = _build_job_service(app_config)
         job = job_service.fetch_from_text(text)
         _print_job_summary(job)
     except Exception as e:
@@ -176,7 +168,7 @@ def fetch_job_from_text(app_config: AppConfig) -> None:
 def list_stored_jobs(app_config: AppConfig) -> None:
     """Display all jobs currently stored in the database."""
     try:
-        job_service = _build_job_service_only(app_config)
+        job_service = _build_job_service(app_config)
         jobs = job_service.job_store.list_all()
 
         if not jobs:
@@ -208,7 +200,7 @@ def create_cover_letter(app_config: AppConfig) -> None:
         answers = inquirer.prompt(questions)
         job_url = answers.get("job_url")
 
-        job_service = _build_job_service(app_config)
+        job_service = _build_job_service(app_config, with_driver=True)
         job = job_service.fetch_from_url(job_url)
 
         resume_service = _build_resume_service(app_config, style_manager)
@@ -261,7 +253,7 @@ def create_resume_pdf_job_tailored(app_config: AppConfig) -> None:
         answers = inquirer.prompt(questions)
         job_url = answers.get("job_url")
 
-        job_service = _build_job_service(app_config)
+        job_service = _build_job_service(app_config, with_driver=True)
         job = job_service.fetch_from_url(job_url)
 
         resume_service = _build_resume_service(app_config, style_manager)
