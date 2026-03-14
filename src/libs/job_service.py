@@ -9,6 +9,7 @@ from selenium import webdriver
 
 from src.job import Job
 from src.libs.job_store import JobStore
+from src.libs.resume_and_cover_builder.builder_config import builder_config
 from src.libs.resume_and_cover_builder.llm.llm_job_parser import LLMParser
 
 # Maps file extensions to source_type identifiers.
@@ -48,6 +49,10 @@ class JobService:
             assets_dir=output_path / "jobs_assets",
         )
         self.driver: webdriver.Chrome | None = None
+        # Ensure the shared builder_config knows where to write LLM call logs,
+        # even when ResumeService is never initialised (job-only workflow).
+        if builder_config.LOG_OUTPUT_FILE_PATH is None:
+            builder_config.LOG_OUTPUT_FILE_PATH = output_path
 
     def set_driver(self, driver: webdriver.Chrome) -> None:
         """Provide the Selenium Chrome driver used for web scraping."""
@@ -134,4 +139,28 @@ class JobService:
         # Persist
         self.job_store.save(job, raw_content=content, source_type=source_type)
         logger.info(f"Extracted job details from file: {file_path}")
+        return job
+
+    def fetch_from_text(self, text: str) -> Job:
+        """Parse a raw plain-text job description and persist it.
+
+        A ``local://<uuid>`` identifier is generated as the ``link`` since
+        there is no URL or file path.
+
+        Args:
+            text: Plain-text content of the job description.
+
+        Returns:
+            Parsed and persisted ``Job`` instance.
+        """
+        if not text.strip():
+            raise ValueError("Job description text must not be empty.")
+
+        job = self.llm_job_parser.parse(content=text, source_type="text")
+        job.link = f"local://{uuid.uuid4()}"
+        job.source_type = "text"
+        job.parsed_at = datetime.now()
+
+        self.job_store.save(job, raw_content=text, source_type="text")
+        logger.info("Extracted job details from pasted plain text.")
         return job
