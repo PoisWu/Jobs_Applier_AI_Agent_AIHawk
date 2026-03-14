@@ -5,77 +5,40 @@ their constructor (dependency injection) rather than receiving a raw API key.
 
 Usage::
 
-    provider = LLMProvider(api_key="sk-...")
+    provider = LLMProvider(LLMConfig(API_KEY="sk-...", LOG_OUTPUT_FILE_PATH=output_path))
 
-    # LangChain-based consumers (resume / cover-letter generators):
+    # Prompt-chain consumers (resume / cover-letter generators):
     resumer = LLMResumer(llm_provider=provider, strings=resume_strings)
 
-    # OpenAI-Responses-API consumers (job parser):
+    # Structured-output consumers (job parser):
     parser = LLMParser(llm_provider=provider)
 """
 
-import json
 import re
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import openai
 from langchain_core.messages.ai import AIMessage
-from langchain_core.prompt_values import StringPromptValue
 from langchain_openai import ChatOpenAI
 from loguru import logger
 from requests.exceptions import HTTPError as HTTPStatusError
 
 from config import settings
 from src.libs.llm.llm_config import LLMConfig
+from src.libs.llm.llm_logger import log_llm_call
 
 
-def log_llm_call(
-    model: str,
-    prompts: Any,
-    reply: str,
-    input_tokens: int,
-    output_tokens: int,
-    log_output_file_path: Path,
-) -> None:
-    """Persist an LLM request/response pair to the JSON call log.
-
-    Handles prompt normalisation for all prompt types (``StringPromptValue``,
-    plain lists, and LangChain message containers) before writing to
-    ``open_ai_calls.json``.
-    """
-    # Normalise prompts to a JSON-serialisable form
-    if isinstance(prompts, StringPromptValue):
-        prompts = prompts.text
-    elif isinstance(prompts, list):
-        # Plain list (Responses API) or list of LangChain messages — keep as-is
-        pass
-    else:
-        # LangChain ChatPromptValue or similar container
-        prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
-
-    calls_log = log_output_file_path / "open_ai_calls.json"
-
-    prompt_price_per_token = settings.PROMPT_PRICE_PER_TOKEN
-    completion_price_per_token = settings.COMPLETION_PRICE_PER_TOKEN
-    total_cost = (input_tokens * prompt_price_per_token) + (output_tokens * completion_price_per_token)
-
-    log_entry = {
-        "model": model,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "prompts": prompts,
-        "replies": reply,
-        "total_tokens": input_tokens + output_tokens,
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_cost": total_cost,
-    }
-
-    with open(calls_log, "a", encoding="utf-8") as f:
-        json_string = json.dumps(log_entry, ensure_ascii=False, indent=4)
-        f.write(json_string + "\n")
+def parse_rate_limit_wait_time(error_message: str) -> int:
+    """Extract a wait-time in seconds from a rate-limit error string, defaulting to 60."""
+    match = re.search(r"try again in (\d+)s", error_message)
+    if match:
+        return int(match.group(1))
+    match = re.search(r"retry after (\d+)", error_message, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return 60
 
 
 class LoggerChatModel:
@@ -92,31 +55,20 @@ class LoggerChatModel:
     @staticmethod
     def parse_wait_time_from_error_message(error_message: str) -> int:
         """Extract wait time from rate-limit error messages, defaulting to 60s."""
-        match = re.search(r"try again in (\d+)s", error_message)
-        if match:
-            return int(match.group(1))
-        match = re.search(r"retry after (\d+)", error_message, re.IGNORECASE)
-        if match:
-            return int(match.group(1))
-        return 60
+        return parse_rate_limit_wait_time(error_message)
 
-    def __call__(self, messages: list[dict[str, str]]) -> str:
+    # ------------------------------------------------------------------
+    # Retry helper
+    # ------------------------------------------------------------------
+
+    def _invoke_with_retry(self, invoke_fn) -> Any:
+        """Execute *invoke_fn()* inside a retry / back-off loop."""
         max_retries = 15
         retry_delay = 10
 
         for attempt in range(max_retries):
             try:
-                reply = self.llm.invoke(messages)
-                parsed_reply = self._parse_llm_result(reply)
-                log_llm_call(
-                    model=parsed_reply["response_metadata"]["model_name"],
-                    prompts=messages,
-                    reply=parsed_reply["content"],
-                    input_tokens=parsed_reply["usage_metadata"]["input_tokens"],
-                    output_tokens=parsed_reply["usage_metadata"]["output_tokens"],
-                    log_output_file_path=self.llm_config.LOG_OUTPUT_FILE_PATH,
-                )
-                return reply
+                return invoke_fn()
             except (openai.RateLimitError, HTTPStatusError) as err:
                 if isinstance(err, HTTPStatusError) and err.response.status_code == 429:
                     logger.warning(
@@ -139,6 +91,58 @@ class LoggerChatModel:
 
         logger.critical("Failed to get a response from the model after multiple attempts.")
         raise Exception("Failed to get a response from the model after multiple attempts.")
+
+    # ------------------------------------------------------------------
+    # Public invoke interface
+    # ------------------------------------------------------------------
+
+    def invoke(self, messages: list) -> str:
+        """Invoke the model and return the reply as a plain string."""
+
+        def _invoke():
+            reply = self.llm.invoke(messages)
+            parsed_reply = self._parse_llm_result(reply)
+            log_llm_call(
+                model=parsed_reply["response_metadata"]["model_name"],
+                prompts=messages,
+                reply=parsed_reply["content"],
+                input_tokens=parsed_reply["usage_metadata"]["input_tokens"],
+                output_tokens=parsed_reply["usage_metadata"]["output_tokens"],
+                log_output_file_path=self.llm_config.LOG_OUTPUT_FILE_PATH,
+            )
+            return parsed_reply["content"]
+
+        return self._invoke_with_retry(_invoke)
+
+    # ------------------------------------------------------------------
+    # Structured-output interface (used by parser consumers)
+    # ------------------------------------------------------------------
+
+    def structured_invoke(self, messages: list, schema: type) -> Any:
+        """Invoke the model with *schema* as structured output.
+
+        Uses ``ChatOpenAI.with_structured_output(schema, include_raw=True)`` so
+        that token-usage metadata is still available for logging, then returns
+        only the validated ``schema`` instance.
+        """
+        structured_llm = self.llm.with_structured_output(schema, include_raw=True)
+
+        def _invoke():
+            result = structured_llm.invoke(messages)
+            raw: AIMessage = result["raw"]
+            parsed = result["parsed"]
+            parsed_meta = self._parse_llm_result(raw)
+            log_llm_call(
+                model=parsed_meta["response_metadata"]["model_name"],
+                prompts=messages,
+                reply=str(parsed),
+                input_tokens=parsed_meta["usage_metadata"]["input_tokens"],
+                output_tokens=parsed_meta["usage_metadata"]["output_tokens"],
+                log_output_file_path=self.llm_config.LOG_OUTPUT_FILE_PATH,
+            )
+            return parsed
+
+        return self._invoke_with_retry(_invoke)
 
     @staticmethod
     def _parse_llm_result(llmresult: AIMessage) -> dict[str, dict]:
@@ -169,12 +173,12 @@ class LLMProvider:
     Attributes:
         model: The model name used for all LLM calls (taken from ``settings``).
         chat_model: A ``LoggerChatModel`` wrapping a LangChain ``ChatOpenAI``
-            instance — intended for prompt-chain consumers.
-        openai_client: A raw ``openai.OpenAI`` client for callers that use the
-            Responses API directly (e.g. ``LLMParser``).
+            instance.  All consumers — prompt-chain generators *and* the
+            structured-output job parser — share this single object, which
+            centralises retry logic and call logging.
     """
 
     def __init__(self, llm_config: LLMConfig) -> None:
         self.model: str = settings.LLM_MODEL
+        self.log_output_file_path: Path | None = llm_config.LOG_OUTPUT_FILE_PATH
         self.chat_model = LoggerChatModel(llm_config)
-        self.openai_client = openai.OpenAI(api_key=llm_config.API_KEY)

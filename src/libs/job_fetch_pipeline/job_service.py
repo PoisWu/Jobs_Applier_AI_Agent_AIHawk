@@ -8,8 +8,8 @@ from loguru import logger
 from selenium import webdriver
 
 from src.job import Job
-from src.libs.job_fetch_pipeline import JobStore
 from src.libs.job_fetch_pipeline.job_parser import LLMParser
+from src.libs.job_fetch_pipeline.job_store import JobStore
 from src.libs.llm.llm_provider import LLMProvider
 
 # Maps file extensions to source_type identifiers.

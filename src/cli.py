@@ -6,7 +6,7 @@ from pathlib import Path
 import inquirer
 
 from src.app_config import AppConfig
-from src.libs.job_fetch_pipeline import JobService
+from src.libs.job_fetch_pipeline.job_service import JobService
 from src.libs.llm import LLMProvider
 from src.libs.llm.llm_config import LLMConfig
 from src.libs.resume_and_cover_builder import ResumeGenerator, ResumeService, StyleManager

@@ -1,50 +1,28 @@
-"""Tests for the rewritten LLMParser (Responses API)."""
+"""Tests for the LangChain-based LLMParser."""
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.job import Job
 from src.libs.job_fetch_pipeline.job_parser import LLMParser
 from src.libs.llm.llm_config import LLMConfig
 from src.libs.llm.llm_provider import LLMProvider
+from src.schemas.job_parse_output import JobParseOutput
 
-# A realistic JSON blob the LLM is expected to return.
-_SAMPLE_LLM_JSON = json.dumps(
-    {
-        "role": "Backend Engineer",
-        "company": "WidgetCo",
-        "location": "Remote",
-        "description": "Build and maintain backend services for our widget platform.",
-        "salary_range": "$130k–$170k",
-        "employment_type": "full-time",
-        "experience_level": "mid-level",
-        "required_skills": ["Python", "FastAPI", "PostgreSQL", "Docker"],
-        "recruiter_email": "hr@widgetco.com",
-    }
+# A pre-built JobParseOutput that structured_invoke would return.
+_SAMPLE_OUTPUT = JobParseOutput(
+    role="Backend Engineer",
+    company="WidgetCo",
+    location="Remote",
+    description="Build and maintain backend services for our widget platform.",
+    salary_range="$130k–$170k",
+    employment_type="full-time",
+    experience_level="mid-level",
+    required_skills=["Python", "FastAPI", "PostgreSQL", "Docker"],
+    recruiter_email="hr@widgetco.com",
 )
-
-
-def _make_mock_response(text: str, model: str = "gpt-5.4") -> MagicMock:
-    """Build a mock object that mimics the OpenAI Responses API return value."""
-    content_block = MagicMock()
-    content_block.type = "output_text"
-    content_block.text = text
-
-    message_item = MagicMock()
-    message_item.type = "message"
-    message_item.content = [content_block]
-
-    usage = MagicMock()
-    usage.input_tokens = 500
-    usage.output_tokens = 200
-
-    response = MagicMock()
-    response.output = [message_item]
-    response.usage = usage
-    response.model = model
-    return response
 
 
 @pytest.fixture
@@ -54,14 +32,24 @@ def parser() -> LLMParser:
     return LLMParser(llm_provider=llm_provider)
 
 
+class TestLLMProvider:
+    """Verify LLMProvider interface after openai_client removal."""
+
+    def test_no_openai_client_attribute(self) -> None:
+        """LLMProvider must no longer expose a raw openai_client attribute."""
+        provider = LLMProvider(LLMConfig(API_KEY="sk-test-dummy-key"))
+        assert not hasattr(provider, "openai_client")
+
+    def test_has_chat_model(self) -> None:
+        provider = LLMProvider(LLMConfig(API_KEY="sk-test-dummy-key"))
+        assert hasattr(provider, "chat_model")
+
+
 class TestLLMParserParse:
     """Verify that ``LLMParser.parse()`` correctly hydrates a ``Job``."""
 
-    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
-    def test_parse_html(self, mock_log: MagicMock, parser: LLMParser) -> None:
-        mock_resp = _make_mock_response(_SAMPLE_LLM_JSON)
-        parser.client = MagicMock()
-        parser.client.responses.create.return_value = mock_resp
+    def test_parse_html(self, parser: LLMParser) -> None:
+        parser.llm_chat.structured_invoke = MagicMock(return_value=_SAMPLE_OUTPUT)
 
         job = parser.parse(content="<html><body>Some job page</body></html>", source_type="html")
 
@@ -74,113 +62,118 @@ class TestLLMParserParse:
         assert job.recruiter_email == "hr@widgetco.com"
         assert job.parsed_at is not None
 
-        # Verify the API was called once
-        parser.client.responses.create.assert_called_once()
+        # structured_invoke called once with (messages, JobParseOutput)
+        parser.llm_chat.structured_invoke.assert_called_once()
+        _messages, _schema = parser.llm_chat.structured_invoke.call_args.args
+        assert _schema is JobParseOutput
 
-    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
-    def test_parse_pdf(self, mock_log: MagicMock, parser: LLMParser) -> None:
-        mock_resp = _make_mock_response(_SAMPLE_LLM_JSON)
-        parser.client = MagicMock()
-        parser.client.responses.create.return_value = mock_resp
+    def test_parse_text(self, parser: LLMParser) -> None:
+        parser.llm_chat.structured_invoke = MagicMock(return_value=_SAMPLE_OUTPUT)
+
+        job = parser.parse(content="Plain text job description", source_type="text")
+
+        assert job.role == "Backend Engineer"
+
+    def test_parse_pdf(self, parser: LLMParser) -> None:
+        parser.llm_chat.structured_invoke = MagicMock(return_value=_SAMPLE_OUTPUT)
 
         job = parser.parse(content=b"%PDF-1.4 fake pdf bytes", source_type="pdf")
 
         assert job.role == "Backend Engineer"
-        # Verify input_file block was used (not input_text for the content)
-        call_args = parser.client.responses.create.call_args
-        content_blocks = call_args.kwargs["input"][0]["content"]
-        # First block is system prompt (input_text), second is the file
-        assert content_blocks[1]["type"] == "input_file"
-        assert content_blocks[1]["filename"] == "job_posting.pdf"
 
-    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
-    def test_parse_screenshot(self, mock_log: MagicMock, parser: LLMParser) -> None:
-        mock_resp = _make_mock_response(_SAMPLE_LLM_JSON)
-        parser.client = MagicMock()
-        parser.client.responses.create.return_value = mock_resp
+        messages, _schema = parser.llm_chat.structured_invoke.call_args.args
+        human_msg = messages[1]
+        assert isinstance(human_msg.content, list)
+        file_block = next(b for b in human_msg.content if b.get("type") == "file")
+        assert file_block["media_type"] == "application/pdf"
+        assert file_block["filename"] == "job_posting.pdf"
 
-        job = parser.parse(content=b"\x89PNG fake image", source_type="screenshot", filename="job_screenshot.png")
+    def test_parse_screenshot(self, parser: LLMParser) -> None:
+        parser.llm_chat.structured_invoke = MagicMock(return_value=_SAMPLE_OUTPUT)
+
+        job = parser.parse(
+            content=b"\x89PNG fake image",
+            source_type="screenshot",
+            filename="job_screenshot.png",
+        )
 
         assert job.company == "WidgetCo"
-        call_args = parser.client.responses.create.call_args
-        content_blocks = call_args.kwargs["input"][0]["content"]
-        assert content_blocks[1]["type"] == "input_file"
-        assert content_blocks[1]["filename"] == "job_screenshot.png"
+
+        messages, _schema = parser.llm_chat.structured_invoke.call_args.args
+        human_msg = messages[1]
+        image_block = next(b for b in human_msg.content if b.get("type") == "image")
+        assert image_block["mime_type"] == "image/png"
 
 
-class TestLLMParserEdgeCases:
-    """Verify graceful handling of malformed / unexpected LLM output."""
+class TestBuildMessages:
+    """Verify LangChain message construction for different source types."""
 
-    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
-    def test_markdown_fenced_json(self, mock_log: MagicMock, parser: LLMParser) -> None:
-        """The model wraps its JSON in ```json ... ``` — should still parse."""
-        fenced = f"```json\n{_SAMPLE_LLM_JSON}\n```"
-        mock_resp = _make_mock_response(fenced)
-        parser.client = MagicMock()
-        parser.client.responses.create.return_value = mock_resp
+    def test_html_produces_system_and_human_string(self, parser: LLMParser) -> None:
+        messages = parser._build_messages("<html>hi</html>", "html", None)
 
-        job = parser.parse(content="<html>test</html>", source_type="html")
+        assert len(messages) == 2
+        assert isinstance(messages[0], SystemMessage)
+        assert isinstance(messages[1], HumanMessage)
+        # HTML/text → plain string content (not a list of blocks)
+        assert isinstance(messages[1].content, str)
+        assert "<html>hi</html>" in messages[1].content
+
+    def test_text_produces_plain_string(self, parser: LLMParser) -> None:
+        messages = parser._build_messages("plain text job", "text", None)
+        assert isinstance(messages[1].content, str)
+
+    def test_pdf_produces_file_block(self, parser: LLMParser) -> None:
+        messages = parser._build_messages(b"%PDF", "pdf", "resume.pdf")
+        human = messages[1]
+
+        assert isinstance(human.content, list)
+        file_block = next(b for b in human.content if b.get("type") == "file")
+        assert file_block["filename"] == "resume.pdf"
+        assert file_block["media_type"] == "application/pdf"
+        assert "data" in file_block  # base64-encoded content
+
+    def test_pdf_default_filename(self, parser: LLMParser) -> None:
+        messages = parser._build_messages(b"%PDF", "pdf", None)
+        file_block = next(b for b in messages[1].content if b.get("type") == "file")
+        assert file_block["filename"] == "job_posting.pdf"
+
+    def test_screenshot_produces_image_block(self, parser: LLMParser) -> None:
+        messages = parser._build_messages(b"\x89PNG", "screenshot", None)
+        human = messages[1]
+
+        image_block = next(b for b in human.content if b.get("type") == "image")
+        assert image_block["mime_type"] == "image/png"
+        assert "data" in image_block
+
+    def test_custom_filename_for_pdf(self, parser: LLMParser) -> None:
+        messages = parser._build_messages(b"%PDF", "pdf", "custom_job.pdf")
+        file_block = next(b for b in messages[1].content if b.get("type") == "file")
+        assert file_block["filename"] == "custom_job.pdf"
+
+
+class TestOutputToJob:
+    """Verify JobParseOutput → Job field mapping."""
+
+    def test_all_fields_mapped(self) -> None:
+        job = LLMParser._output_to_job(_SAMPLE_OUTPUT)
+
         assert job.role == "Backend Engineer"
+        assert job.company == "WidgetCo"
+        assert job.location == "Remote"
+        assert job.description == "Build and maintain backend services for our widget platform."
+        assert job.salary_range == "$130k–$170k"
+        assert job.employment_type == "full-time"
+        assert job.experience_level == "mid-level"
+        assert job.required_skills == ["Python", "FastAPI", "PostgreSQL", "Docker"]
+        assert job.recruiter_email == "hr@widgetco.com"
+        # pipeline-level fields stay at their defaults
+        assert job.link == ""
+        assert job.parsed_at is None
 
-    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
-    def test_invalid_json_returns_blank_job(self, mock_log: MagicMock, parser: LLMParser) -> None:
-        mock_resp = _make_mock_response("This is not JSON at all.")
-        parser.client = MagicMock()
-        parser.client.responses.create.return_value = mock_resp
+    def test_empty_output_gives_blank_job(self) -> None:
+        empty_output = JobParseOutput()
+        job = LLMParser._output_to_job(empty_output)
 
-        job = parser.parse(content="<html>test</html>", source_type="html")
         assert job.role == ""
         assert job.company == ""
-
-    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
-    def test_empty_response(self, mock_log: MagicMock, parser: LLMParser) -> None:
-        mock_resp = _make_mock_response("")
-        parser.client = MagicMock()
-        parser.client.responses.create.return_value = mock_resp
-
-        job = parser.parse(content="<html/>", source_type="html")
-        assert job.role == ""
-
-    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
-    def test_skills_as_csv_string(self, mock_log: MagicMock, parser: LLMParser) -> None:
-        """The model returns required_skills as a comma-separated string."""
-        data = {
-            "role": "Dev",
-            "company": "X",
-            "location": "",
-            "description": "",
-            "salary_range": "",
-            "employment_type": "",
-            "experience_level": "",
-            "required_skills": "Python, Docker, K8s",
-            "recruiter_email": "",
-        }
-        mock_resp = _make_mock_response(json.dumps(data))
-        parser.client = MagicMock()
-        parser.client.responses.create.return_value = mock_resp
-
-        job = parser.parse(content="text", source_type="text")
-        assert job.required_skills == ["Python", "Docker", "K8s"]
-
-
-class TestBuildContentBlocks:
-    """Verify content block construction for different source types."""
-
-    def test_html_produces_two_text_blocks(self, parser: LLMParser) -> None:
-        blocks = parser._build_content_blocks("<html>hi</html>", "html", None)
-        assert len(blocks) == 2
-        assert all(b["type"] == "input_text" for b in blocks)
-
-    def test_pdf_produces_text_plus_file_block(self, parser: LLMParser) -> None:
-        blocks = parser._build_content_blocks(b"%PDF", "pdf", "resume.pdf")
-        assert len(blocks) == 2
-        assert blocks[0]["type"] == "input_text"
-        assert blocks[1]["type"] == "input_file"
-        assert blocks[1]["filename"] == "resume.pdf"
-        assert blocks[1]["file_data"].startswith("data:application/pdf;base64,")
-
-    def test_screenshot_produces_file_block(self, parser: LLMParser) -> None:
-        blocks = parser._build_content_blocks(b"\x89PNG", "screenshot", None)
-        assert blocks[1]["type"] == "input_file"
-        assert blocks[1]["filename"] == "screenshot.png"
-        assert "image/png" in blocks[1]["file_data"]
+        assert job.required_skills == []

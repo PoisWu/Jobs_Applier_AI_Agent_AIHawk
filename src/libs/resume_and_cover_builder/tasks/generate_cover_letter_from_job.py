@@ -3,7 +3,6 @@
 import types
 from typing import TYPE_CHECKING
 
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from loguru import logger
 
@@ -35,9 +34,7 @@ class LLMCoverLetterJobDescription:
         """
         logger.debug("Starting job description summarization...")
         prompt = ChatPromptTemplate.from_template(self.strings.summarize_prompt_template)
-        chain = prompt | self.llm_cheap | StrOutputParser()
-        output = chain.invoke({"text": job_description_text})
-        self.job_description = output
+        self.job_description = self.llm_cheap.invoke(prompt.format_messages(text=job_description_text))
         logger.debug(f"Job description summarization complete: {self.job_description}")
 
     def generate_cover_letter(self) -> str:
@@ -53,13 +50,10 @@ class LLMCoverLetterJobDescription:
         prompt = ChatPromptTemplate.from_template(prompt_template)
         logger.debug(f"Prompt created: {prompt}")
 
-        chain = prompt | self.llm_cheap | StrOutputParser()
-        logger.debug(f"Chain created: {chain}")
-
         input_data = {"job_description": self.job_description, "resume": self.resume}
         logger.debug(f"Input data: {input_data}")
 
-        output = chain.invoke(input_data)
+        output = self.llm_cheap.invoke(prompt.format_messages(**input_data))
         logger.debug(f"Cover letter generation result: {output}")
 
         logger.debug("Cover letter generation completed")
