@@ -30,8 +30,6 @@ $body
 
 class BuilderConfig(BaseModel):
     STYLES_DIRECTORY: Path | None = None
-    LOG_OUTPUT_FILE_PATH: Path | None = None
-    API_KEY: str | None = None
     html_template: str = _DEFAULT_HTML_TEMPLATE
     use_single_query: bool = True
 

@@ -6,7 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.job import Job
-from src.libs.resume_and_cover_builder.llm.llm_job_parser import LLMParser
+from src.libs.job_fetch_pipeline.job_parser import LLMParser
+from src.libs.llm.llm_config import LLMConfig
+from src.libs.llm.llm_provider import LLMProvider
 
 # A realistic JSON blob the LLM is expected to return.
 _SAMPLE_LLM_JSON = json.dumps(
@@ -48,13 +50,14 @@ def _make_mock_response(text: str, model: str = "gpt-5.4") -> MagicMock:
 @pytest.fixture
 def parser() -> LLMParser:
     """Return an ``LLMParser`` with a dummy API key (API calls are mocked)."""
-    return LLMParser(api_key="sk-test-dummy-key", model="gpt-5.4")
+    llm_provider = LLMProvider(LLMConfig(API_KEY="sk-test-dummy-key"))
+    return LLMParser(llm_provider=llm_provider)
 
 
 class TestLLMParserParse:
     """Verify that ``LLMParser.parse()`` correctly hydrates a ``Job``."""
 
-    @patch("src.libs.resume_and_cover_builder.llm.llm_job_parser.log_llm_call")
+    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
     def test_parse_html(self, mock_log: MagicMock, parser: LLMParser) -> None:
         mock_resp = _make_mock_response(_SAMPLE_LLM_JSON)
         parser.client = MagicMock()
@@ -74,7 +77,7 @@ class TestLLMParserParse:
         # Verify the API was called once
         parser.client.responses.create.assert_called_once()
 
-    @patch("src.libs.resume_and_cover_builder.llm.llm_job_parser.log_llm_call")
+    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
     def test_parse_pdf(self, mock_log: MagicMock, parser: LLMParser) -> None:
         mock_resp = _make_mock_response(_SAMPLE_LLM_JSON)
         parser.client = MagicMock()
@@ -90,7 +93,7 @@ class TestLLMParserParse:
         assert content_blocks[1]["type"] == "input_file"
         assert content_blocks[1]["filename"] == "job_posting.pdf"
 
-    @patch("src.libs.resume_and_cover_builder.llm.llm_job_parser.log_llm_call")
+    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
     def test_parse_screenshot(self, mock_log: MagicMock, parser: LLMParser) -> None:
         mock_resp = _make_mock_response(_SAMPLE_LLM_JSON)
         parser.client = MagicMock()
@@ -108,7 +111,7 @@ class TestLLMParserParse:
 class TestLLMParserEdgeCases:
     """Verify graceful handling of malformed / unexpected LLM output."""
 
-    @patch("src.libs.resume_and_cover_builder.llm.llm_job_parser.log_llm_call")
+    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
     def test_markdown_fenced_json(self, mock_log: MagicMock, parser: LLMParser) -> None:
         """The model wraps its JSON in ```json ... ``` — should still parse."""
         fenced = f"```json\n{_SAMPLE_LLM_JSON}\n```"
@@ -119,7 +122,7 @@ class TestLLMParserEdgeCases:
         job = parser.parse(content="<html>test</html>", source_type="html")
         assert job.role == "Backend Engineer"
 
-    @patch("src.libs.resume_and_cover_builder.llm.llm_job_parser.log_llm_call")
+    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
     def test_invalid_json_returns_blank_job(self, mock_log: MagicMock, parser: LLMParser) -> None:
         mock_resp = _make_mock_response("This is not JSON at all.")
         parser.client = MagicMock()
@@ -129,7 +132,7 @@ class TestLLMParserEdgeCases:
         assert job.role == ""
         assert job.company == ""
 
-    @patch("src.libs.resume_and_cover_builder.llm.llm_job_parser.log_llm_call")
+    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
     def test_empty_response(self, mock_log: MagicMock, parser: LLMParser) -> None:
         mock_resp = _make_mock_response("")
         parser.client = MagicMock()
@@ -138,7 +141,7 @@ class TestLLMParserEdgeCases:
         job = parser.parse(content="<html/>", source_type="html")
         assert job.role == ""
 
-    @patch("src.libs.resume_and_cover_builder.llm.llm_job_parser.log_llm_call")
+    @patch("src.libs.resume_and_cover_builder.tasks.job_parser.log_llm_call")
     def test_skills_as_csv_string(self, mock_log: MagicMock, parser: LLMParser) -> None:
         """The model returns required_skills as a comma-separated string."""
         data = {

@@ -1,9 +1,24 @@
-"""LLM chat-model wrapper with retry logic and request logging."""
+"""Central LLM provider — the only place where credentials touch LLM object construction.
+
+All modules that need LLM access should accept an ``LLMProvider`` instance via
+their constructor (dependency injection) rather than receiving a raw API key.
+
+Usage::
+
+    provider = LLMProvider(api_key="sk-...")
+
+    # LangChain-based consumers (resume / cover-letter generators):
+    resumer = LLMResumer(llm_provider=provider, strings=resume_strings)
+
+    # OpenAI-Responses-API consumers (job parser):
+    parser = LLMParser(llm_provider=provider)
+"""
 
 import json
 import re
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import openai
@@ -14,50 +29,7 @@ from loguru import logger
 from requests.exceptions import HTTPError as HTTPStatusError
 
 from config import settings
-from src.libs.resume_and_cover_builder.builder_config import builder_config
-
-
-def _log_request(prompts: Any, parsed_reply: dict[str, dict]) -> None:
-    """Persist an LLM request/response pair to the JSON call log."""
-    calls_log = builder_config.LOG_OUTPUT_FILE_PATH / "open_ai_calls.json"
-
-    if isinstance(prompts, StringPromptValue):
-        prompts = prompts.text
-    elif isinstance(prompts, dict):
-        prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
-    elif isinstance(prompts, list):
-        # Multimodal / Responses API: already a list of summary strings
-        prompts = prompts
-    else:
-        prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
-
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    token_usage = parsed_reply["usage_metadata"]
-    output_tokens = token_usage["output_tokens"]
-    input_tokens = token_usage["input_tokens"]
-    total_tokens = token_usage["total_tokens"]
-
-    model_name = parsed_reply["response_metadata"]["model_name"]
-    prompt_price_per_token = settings.PROMPT_PRICE_PER_TOKEN
-    completion_price_per_token = settings.COMPLETION_PRICE_PER_TOKEN
-
-    total_cost = (input_tokens * prompt_price_per_token) + (output_tokens * completion_price_per_token)
-
-    log_entry = {
-        "model": model_name,
-        "time": current_time,
-        "prompts": prompts,
-        "replies": parsed_reply["content"],
-        "total_tokens": total_tokens,
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_cost": total_cost,
-    }
-
-    with open(calls_log, "a", encoding="utf-8") as f:
-        json_string = json.dumps(log_entry, ensure_ascii=False, indent=4)
-        f.write(json_string + "\n")
+from src.libs.llm.llm_config import LLMConfig
 
 
 def log_llm_call(
@@ -66,12 +38,25 @@ def log_llm_call(
     reply: str,
     input_tokens: int,
     output_tokens: int,
+    log_output_file_path: Path,
 ) -> None:
-    """Standalone logging helper shared by ``LoggerChatModel`` and the Responses-API parser.
+    """Persist an LLM request/response pair to the JSON call log.
 
-    This writes to the same ``open_ai_calls.json`` log file as ``_log_request``.
+    Handles prompt normalisation for all prompt types (``StringPromptValue``,
+    plain lists, and LangChain message containers) before writing to
+    ``open_ai_calls.json``.
     """
-    calls_log = builder_config.LOG_OUTPUT_FILE_PATH / "open_ai_calls.json"
+    # Normalise prompts to a JSON-serialisable form
+    if isinstance(prompts, StringPromptValue):
+        prompts = prompts.text
+    elif isinstance(prompts, list):
+        # Plain list (Responses API) or list of LangChain messages — keep as-is
+        pass
+    else:
+        # LangChain ChatPromptValue or similar container
+        prompts = {f"prompt_{i + 1}": prompt.content for i, prompt in enumerate(prompts.messages)}
+
+    calls_log = log_output_file_path / "open_ai_calls.json"
 
     prompt_price_per_token = settings.PROMPT_PRICE_PER_TOKEN
     completion_price_per_token = settings.COMPLETION_PRICE_PER_TOKEN
@@ -96,8 +81,13 @@ def log_llm_call(
 class LoggerChatModel:
     """Wrapper around ``ChatOpenAI`` that adds retry logic and call logging."""
 
-    def __init__(self, llm: ChatOpenAI):
-        self.llm = llm
+    def __init__(self, llm_config: LLMConfig):
+        self.llm_config = llm_config
+        self.llm = ChatOpenAI(
+            model_name=settings.LLM_MODEL,
+            openai_api_key=llm_config.API_KEY,
+            temperature=settings.LLM_TEMPERATURE,
+        )
 
     @staticmethod
     def parse_wait_time_from_error_message(error_message: str) -> int:
@@ -118,7 +108,14 @@ class LoggerChatModel:
             try:
                 reply = self.llm.invoke(messages)
                 parsed_reply = self._parse_llm_result(reply)
-                _log_request(prompts=messages, parsed_reply=parsed_reply)
+                log_llm_call(
+                    model=parsed_reply["response_metadata"]["model_name"],
+                    prompts=messages,
+                    reply=parsed_reply["content"],
+                    input_tokens=parsed_reply["usage_metadata"]["input_tokens"],
+                    output_tokens=parsed_reply["usage_metadata"]["output_tokens"],
+                    log_output_file_path=self.llm_config.LOG_OUTPUT_FILE_PATH,
+                )
                 return reply
             except (openai.RateLimitError, HTTPStatusError) as err:
                 if isinstance(err, HTTPStatusError) and err.response.status_code == 429:
@@ -161,3 +158,23 @@ class LoggerChatModel:
                 "total_tokens": llmresult.usage_metadata.get("total_tokens", 0),
             },
         }
+
+
+class LLMProvider:
+    """Holds all LLM objects and credentials.
+
+    Instantiate once at the application boundary (e.g. the CLI wiring function)
+    and inject the instance wherever LLM access is needed.
+
+    Attributes:
+        model: The model name used for all LLM calls (taken from ``settings``).
+        chat_model: A ``LoggerChatModel`` wrapping a LangChain ``ChatOpenAI``
+            instance — intended for prompt-chain consumers.
+        openai_client: A raw ``openai.OpenAI`` client for callers that use the
+            Responses API directly (e.g. ``LLMParser``).
+    """
+
+    def __init__(self, llm_config: LLMConfig) -> None:
+        self.model: str = settings.LLM_MODEL
+        self.chat_model = LoggerChatModel(llm_config)
+        self.openai_client = openai.OpenAI(api_key=llm_config.API_KEY)

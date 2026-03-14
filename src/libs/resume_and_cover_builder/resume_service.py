@@ -28,7 +28,6 @@ class ResumeService:
 
     def __init__(
         self,
-        api_key: str,
         style_manager: StyleManager,
         resume_generator: ResumeGenerator,
         resume_object: Resume,
@@ -37,16 +36,14 @@ class ResumeService:
         """Initialise the service and configure the global builder config.
 
         Args:
-            api_key: OpenAI API key forwarded to the LLM generator.
             style_manager: Manages available CSS styles.
             resume_generator: Generates HTML resumes / cover letters.
+                Must already have an ``LLMProvider`` injected via its constructor.
             resume_object: Parsed resume data.
             output_path: Directory for generated artefacts (used by builder_config).
         """
         lib_directory = Path(__file__).resolve().parent
         builder_config.STYLES_DIRECTORY = lib_directory / "resume_style"
-        builder_config.LOG_OUTPUT_FILE_PATH = output_path
-        builder_config.API_KEY = api_key
 
         self.style_manager = style_manager
         self.resume_generator = resume_generator

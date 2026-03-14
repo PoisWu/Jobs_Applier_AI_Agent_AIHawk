@@ -8,9 +8,9 @@ from loguru import logger
 from selenium import webdriver
 
 from src.job import Job
-from src.libs.job_store import JobStore
-from src.libs.resume_and_cover_builder.builder_config import builder_config
-from src.libs.resume_and_cover_builder.llm.llm_job_parser import LLMParser
+from src.libs.job_fetch_pipeline import JobStore
+from src.libs.job_fetch_pipeline.job_parser import LLMParser
+from src.libs.llm.llm_provider import LLMProvider
 
 # Maps file extensions to source_type identifiers.
 _EXT_TO_SOURCE: dict[str, str] = {
@@ -36,23 +36,19 @@ class JobService:
     It has no knowledge of resume or cover letter generation.
     """
 
-    def __init__(self, api_key: str, output_path: Path) -> None:
+    def __init__(self, llm_provider: LLMProvider, output_path: Path) -> None:
         """Initialise the service.
 
         Args:
-            api_key: OpenAI API key forwarded to ``LLMParser``.
+            llm_provider: Shared LLM provider injected from the application boundary.
             output_path: Directory used for the jobs database and raw assets.
         """
-        self.llm_job_parser = LLMParser(api_key=api_key)
+        self.llm_job_parser = LLMParser(llm_provider=llm_provider)
         self.job_store = JobStore(
             db_path=output_path / "jobs.db",
             assets_dir=output_path / "jobs_assets",
         )
         self.driver: webdriver.Chrome | None = None
-        # Ensure the shared builder_config knows where to write LLM call logs,
-        # even when ResumeService is never initialised (job-only workflow).
-        if builder_config.LOG_OUTPUT_FILE_PATH is None:
-            builder_config.LOG_OUTPUT_FILE_PATH = output_path
 
     def set_driver(self, driver: webdriver.Chrome) -> None:
         """Provide the Selenium Chrome driver used for web scraping."""

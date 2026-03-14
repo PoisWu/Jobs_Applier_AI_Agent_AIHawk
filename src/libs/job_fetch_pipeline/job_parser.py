@@ -9,14 +9,17 @@ import base64
 import json
 import re
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import openai
 from loguru import logger
 
 from config import settings
 from src.job import Job
-from src.libs.resume_and_cover_builder.llm.llm_chat_model import log_llm_call
+
+if TYPE_CHECKING:
+    from src.libs.llm.llm_provider import LLMProvider
+from src.libs.llm.llm_provider import log_llm_call
 from src.libs.resume_and_cover_builder.prompts.strings_feder_cr import (
     job_parser_system_prompt,
 )
@@ -49,9 +52,9 @@ class LLMParser:
     (e.g. pdf2image) is needed.
     """
 
-    def __init__(self, api_key: str, model: str | None = None) -> None:
-        self.client = openai.OpenAI(api_key=api_key)
-        self.model = model or settings.LLM_MODEL
+    def __init__(self, llm_provider: "LLMProvider") -> None:
+        self.client = llm_provider.openai_client
+        self.model = llm_provider.model
 
     # ------------------------------------------------------------------
     # Public API

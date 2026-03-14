@@ -6,7 +6,9 @@ from pathlib import Path
 import inquirer
 
 from src.app_config import AppConfig
-from src.libs.job_service import JobService
+from src.libs.job_fetch_pipeline import JobService
+from src.libs.llm import LLMProvider
+from src.libs.llm.llm_config import LLMConfig
 from src.libs.resume_and_cover_builder import ResumeGenerator, ResumeService, StyleManager
 from src.logging import logger
 from src.utils.chrome_utils import init_browser
@@ -44,8 +46,9 @@ def _select_style(style_manager: StyleManager) -> None:
 
 def _build_job_service(app_config: AppConfig) -> JobService:
     """Build a ``JobService`` wired up with its own Selenium driver."""
+    llm_provider = LLMProvider(LLMConfig(API_KEY=app_config.secrets.llm_api_key, LOG_OUTPUT_FILE_PATH=_OUTPUT_PATH))
     job_service = JobService(
-        api_key=app_config.secrets.llm_api_key,
+        llm_provider=llm_provider,
         output_path=_OUTPUT_PATH,
     )
     job_service.set_driver(init_browser())
@@ -54,17 +57,18 @@ def _build_job_service(app_config: AppConfig) -> JobService:
 
 def _build_job_service_only(app_config: AppConfig) -> JobService:
     """Build a ``JobService`` without a Selenium driver (for file/text input)."""
+    llm_provider = LLMProvider(LLMConfig(API_KEY=app_config.secrets.llm_api_key, LOG_OUTPUT_FILE_PATH=_OUTPUT_PATH))
     return JobService(
-        api_key=app_config.secrets.llm_api_key,
+        llm_provider=llm_provider,
         output_path=_OUTPUT_PATH,
     )
 
 
 def _build_resume_service(app_config: AppConfig, style_manager: StyleManager) -> ResumeService:
     """Build a ``ResumeService`` wired up with its own Selenium driver."""
-    resume_generator = ResumeGenerator()
+    llm_provider = LLMProvider(LLMConfig(API_KEY=app_config.secrets.llm_api_key, LOG_OUTPUT_FILE_PATH=_OUTPUT_PATH))
+    resume_generator = ResumeGenerator(llm_provider=llm_provider)
     resume_service = ResumeService(
-        api_key=app_config.secrets.llm_api_key,
         style_manager=style_manager,
         resume_generator=resume_generator,
         resume_object=app_config.resume_object,

@@ -2,28 +2,22 @@
 
 import types
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 from loguru import logger
 
-from config import settings
-from src.libs.resume_and_cover_builder.llm.llm_chat_model import LoggerChatModel
 from src.libs.resume_and_cover_builder.utils import preprocess_template_string
 from src.schemas.resume import Resume
 
+if TYPE_CHECKING:
+    from src.libs.llm.llm_provider import LLMProvider
+
 
 class LLMResumer:
-    def __init__(self, openai_api_key: str, strings: types.ModuleType) -> None:
-        self.llm_cheap = LoggerChatModel(
-            ChatOpenAI(
-                model_name=settings.LLM_MODEL,
-                openai_api_key=openai_api_key,
-                temperature=settings.LLM_TEMPERATURE,
-            )
-        )
+    def __init__(self, llm_provider: "LLMProvider", strings: types.ModuleType) -> None:
+        self.llm_cheap = llm_provider.chat_model
         self.strings = strings
         self.job_description: str | None = None
 
